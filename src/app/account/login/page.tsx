@@ -10,10 +10,16 @@ type User = { id: number; name: string; email: string; createdAt: string };
 type LoginResponse = { user: User };
 type ApiError = { message: string };
 
-// Type guards / helpers
-function isApiError(x: unknown): x is ApiError {
-  return typeof x === "object" && x !== null && typeof (x as any).message === "string";
+type UnknownRecord = Record<string, unknown>;
+
+function isObject(x: unknown): x is UnknownRecord {
+  return typeof x === "object" && x !== null;
 }
+
+function isApiError(x: unknown): x is ApiError {
+  return isObject(x) && typeof x.message === "string";
+}
+
 function getErrorMessage(x: unknown, fallback: string) {
   return isApiError(x) ? x.message : fallback;
 }
@@ -47,12 +53,12 @@ export default function LoginPage() {
         throw new Error(getErrorMessage(data, `Error ${r.status}`));
       }
 
-      const { user } = data as LoginResponse; 
-      setUser(user);           
-      router.push("/");        
+      const { user } = data as LoginResponse;
+      setUser(user);
+      router.push("/");
       router.refresh();
       return;
-    } catch (e) {
+    } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "No se pudo iniciar sesión.";
       setErr(msg);
     } finally {
