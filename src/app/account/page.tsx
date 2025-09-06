@@ -1,31 +1,40 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUser } from "@/lib/auth"; // <-- usa el helper que guarda/lee el user
+import { getUser } from "@/lib/auth";
 
 type Payload = { name: string; email: string; password: string };
+type Feedback = { type: "ok" | "err"; msg: string } | null;
+
+
+// Error estándar del backend
+type ApiError = { message: string };
+
+// Helpers sin `any`
+function isApiError(v: unknown): v is ApiError {
+  if (typeof v !== "object" || v === null) return false;
+  const maybe = v as Record<string, unknown>;
+  return typeof maybe.message === "string";
+}
+function getErrorMessage(data: unknown, fallback: string): string {
+  return isApiError(data) ? data.message : fallback;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: "ok" | "err";
-    msg: string;
-  } | null>(null);
-  const [ready, setReady] = useState(false); // evita parpadeo/hydration
+  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [ready, setReady] = useState(false);
 
-  // ⛔️ Si ya está logeado, no mostrar esta página: redirige
+  // si ya está logeado, redirige
   useEffect(() => {
     const u = getUser();
-    if (u) {
-      router.replace("/account"); 
-    } else {
-      setReady(true);
-    }
+    if (u) router.replace("/account");
+    else setReady(true);
   }, [router]);
 
-  if (!ready) return null; 
+  if (!ready) return null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,9 +46,9 @@ export default function RegisterPage() {
 
     const fd = new FormData(el);
     const payload: Payload = {
-      name: String(fd.get("name") || "").trim(),
-      email: String(fd.get("email") || "").trim(),
-      password: String(fd.get("password") || ""),
+      name: String(fd.get("name") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      password: String(fd.get("password") ?? ""),
     };
 
     try {
@@ -49,18 +58,18 @@ export default function RegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.message || `Error ${res.status}`);
+      const data: unknown = await res.json().catch(() => null);
 
-      router.replace(
-        `/account/login`
-      );
-      return;
-    } catch (err: any) {
-      setFeedback({
-        type: "err",
-        msg: err?.message || "No se pudo crear el usuario.",
-      });
+      if (!res.ok) {
+        const msg = getErrorMessage(data, `Error ${res.status}`);
+        throw new Error(msg);
+      }
+
+      router.replace(`/account/login`);
+      return; 
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo crear el usuario.";
+      setFeedback({ type: "err", msg });
     } finally {
       setLoading(false);
     }
@@ -73,37 +82,19 @@ export default function RegisterPage() {
       <form ref={formRef} onSubmit={onSubmit} className="space-y-4" noValidate>
         <div>
           <label className="mb-1 block text-sm">Nombre</label>
-          <input
-            name="name"
-            className="w-full rounded-lg border px-3 py-2"
-            autoComplete="name"
-          />
+          <input name="name" className="w-full rounded-lg border px-3 py-2" autoComplete="name" />
         </div>
         <div>
           <label className="mb-1 block text-sm">Email</label>
-          <input
-            name="email"
-            type="email"
-            className="w-full rounded-lg border px-3 py-2"
-            autoComplete="email"
-          />
+          <input name="email" type="email" className="w-full rounded-lg border px-3 py-2" autoComplete="email" />
         </div>
         <div>
           <label className="mb-1 block text-sm">Password</label>
-          <input
-            name="password"
-            type="password"
-            className="w-full rounded-lg border px-3 py-2"
-            autoComplete="new-password"
-          />
+          <input name="password" type="password" className="w-full rounded-lg border px-3 py-2" autoComplete="new-password" />
         </div>
 
         {feedback && (
-          <p
-            className={`text-sm ${
-              feedback.type === "ok" ? "text-emerald-700" : "text-red-600"
-            }`}
-          >
+          <p className={`text-sm ${feedback.type === "ok" ? "text-emerald-700" : "text-red-600"}`}>
             {feedback.msg}
           </p>
         )}

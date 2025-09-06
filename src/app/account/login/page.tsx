@@ -4,6 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setUser } from "@/lib/auth";
 
+// Tipos
+type LoginPayload = { email: string; password: string };
+type User = { id: number; name: string; email: string; createdAt: string };
+type LoginResponse = { user: User };
+type ApiError = { message: string };
+
+// Type guards / helpers
+function isApiError(x: unknown): x is ApiError {
+  return typeof x === "object" && x !== null && typeof (x as any).message === "string";
+}
+function getErrorMessage(x: unknown, fallback: string) {
+  return isApiError(x) ? x.message : fallback;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -15,30 +29,32 @@ export default function LoginPage() {
     setLoading(true);
 
     const form = new FormData(e.currentTarget);
-    const payload = {
-      email: String(form.get("email") || "").trim(),
-      password: String(form.get("password") || ""),
+    const payload: LoginPayload = {
+      email: String(form.get("email") ?? "").trim(),
+      password: String(form.get("password") ?? ""),
     };
 
     try {
-      const r = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/usuarios/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/usuarios/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.message || `Error ${r.status}`);
+      const data: unknown = await r.json().catch(() => null);
 
-      setUser(j.user);
-      localStorage.setItem("user", JSON.stringify(j.user));
-      router.push("/"); // o a donde quieras
+      if (!r.ok) {
+        throw new Error(getErrorMessage(data, `Error ${r.status}`));
+      }
+
+      const { user } = data as LoginResponse; 
+      setUser(user);           
+      router.push("/");        
       router.refresh();
-    } catch (e: any) {
-      setErr(e.message || "No se pudo iniciar sesión.");
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "No se pudo iniciar sesión.";
+      setErr(msg);
     } finally {
       setLoading(false);
     }
@@ -50,19 +66,11 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-sm">Email</label>
-          <input
-            name="email"
-            type="email"
-            className="w-full rounded-lg border px-3 py-2"
-          />
+          <input name="email" type="email" className="w-full rounded-lg border px-3 py-2" />
         </div>
         <div>
           <label className="mb-1 block text-sm">Password</label>
-          <input
-            name="password"
-            type="password"
-            className="w-full rounded-lg border px-3 py-2"
-          />
+          <input name="password" type="password" className="w-full rounded-lg border px-3 py-2" />
         </div>
 
         {err && <p className="text-sm text-red-600">{err}</p>}
@@ -73,9 +81,10 @@ export default function LoginPage() {
         >
           {loading ? "Entrando..." : "Entrar"}
         </button>
+
         <p className="mt-4 text-sm text-zinc-600">
           ¿No tienes cuenta?{" "}
-          <Link href="/account" className="text-emerald-700 hover:underline">
+          <Link href="/account/register" className="text-emerald-700 hover:underline">
             Crear una
           </Link>
         </p>
