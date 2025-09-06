@@ -16,7 +16,7 @@ export default function HomePage() {
                 Todo para tu salud, <span className="text-emerald-700">en un solo lugar</span>
               </h1>
               <p className="mt-3 text-zinc-600">
-                Medicamentos, dermocosmética, bebés y bienestar. Envíos rápidos en tu ciudad.
+                Medicamentos, dermocosmética, bebés y bienestar. Envíos rápidos en tu ciudad 24 horas.
               </p>
               <div className="mt-6 flex gap-3">
                 <Link
