@@ -100,16 +100,6 @@ export default function HomePage() {
           </div>
         </Container>
       </section>
-
-      {/* LEGAL */}
-      <section>
-        <Container>
-          <div className="rounded-2xl border p-4 text-xs text-zinc-500 bg-white">
-            * La información en esta web no reemplaza el consejo médico profesional. Consulte siempre con su médico o
-            farmacéutico. Productos sujetos a disponibilidad.
-          </div>
-        </Container>
-      </section>
       <Footer/>
     </div>
   );

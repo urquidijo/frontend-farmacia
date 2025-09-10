@@ -1,103 +1,151 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react'
-
-type Role = { id: number; name: string; description?: string | null }
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
+import { mostrarConfirmacion, mostrarExito, mostrarError } from "@/lib/alerts";
+type Role = { id: number; name: string; description?: string | null };
 type UserRow = {
-  id: number
-  email: string
-  firstName: string
-  lastName: string
-  status: 'ACTIVE' | 'INACTIVE'
-  role: Role | null
-}
-type Me = { id: number; email: string; firstName: string; lastName: string; permissions: string[] }
-type CreateForm = { email: string; firstName: string; lastName: string; password: string; roleId?: number }
-type UpdateForm = { firstName?: string; lastName?: string; status?: 'ACTIVE' | 'INACTIVE'; password?: string; roleId?: number }
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  status: "ACTIVE" | "INACTIVE";
+  role: Role | null;
+};
+type Me = {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  permissions: string[];
+};
+type CreateForm = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  roleId?: number;
+};
+type UpdateForm = {
+  firstName?: string;
+  lastName?: string;
+  status?: "ACTIVE" | "INACTIVE";
+  password?: string;
+  roleId?: number;
+};
 
 export default function AdminUsers() {
-  const [me, setMe] = useState<Me | null>(null)
-  const [users, setUsers] = useState<UserRow[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
-  const [loading, setLoading] = useState(true)
-  const [openCreate, setOpenCreate] = useState(false)
-  const [openEdit, setOpenEdit] = useState<UserRow | null>(null)
-  const [error, setError] = useState<string>('')
+  const [me, setMe] = useState<Me | null>(null);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openEdit, setOpenEdit] = useState<UserRow | null>(null);
+  const [error, setError] = useState<string>("");
 
-  const can = (p: string) => Boolean(me?.permissions?.includes(p))
+  const can = (p: string) => Boolean(me?.permissions?.includes(p));
 
   useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
         const [meRes, uRes, rRes] = await Promise.all([
-          fetch('/api/me', { credentials: 'include', cache: 'no-store' }),
-          fetch('/api/users', { credentials: 'include', cache: 'no-store' }),
-          fetch('/api/roles', { credentials: 'include', cache: 'no-store' }),
-        ])
-        setMe(meRes.ok ? await meRes.json() : null)
-        setUsers(uRes.ok ? await uRes.json() : [])
-        setRoles(rRes.ok ? await rRes.json() : [])
+          fetch("/api/me", { credentials: "include", cache: "no-store" }),
+          fetch("/api/users", { credentials: "include", cache: "no-store" }),
+          fetch("/api/roles", { credentials: "include", cache: "no-store" }),
+        ]);
+        setMe(meRes.ok ? await meRes.json() : null);
+        setUsers(uRes.ok ? await uRes.json() : []);
+        setRoles(rRes.ok ? await rRes.json() : []);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    })()
-  }, [])
+    })();
+  }, []);
 
   const refreshUsers = useCallback(async () => {
-    const r = await fetch('/api/users', { credentials: 'include', cache: 'no-store' })
-    if (r.ok) setUsers(await r.json())
-  }, [])
+    const r = await fetch("/api/users", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (r.ok) setUsers(await r.json());
+  }, []);
 
   // Crear
   async function onCreate(data: CreateForm) {
-    setError('')
-    const r = await fetch('/api/users', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
+    setError("");
+    const r = await fetch("/api/users", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
     if (!r.ok) {
-      setError(await r.text())
-      return
+      setError(await r.text());
+      return;
     }
-    setOpenCreate(false)
-    await refreshUsers()
+    setOpenCreate(false);
+    await refreshUsers();
   }
 
   // Actualizar
   async function onUpdate(id: number, data: UpdateForm) {
-    setError('')
+    setError("");
     const r = await fetch(`/api/users/${id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
     if (!r.ok) {
-      setError(await r.text())
-      return
+      setError(await r.text());
+      return;
     }
-    setOpenEdit(null)
-    await refreshUsers()
+    setOpenEdit(null);
+    await refreshUsers();
   }
 
   // Eliminar
   async function onDelete(u: UserRow) {
-    if (!confirm(`¿Eliminar usuario ${u.email}?`)) return
-    const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE', credentials: 'include' })
-    if (r.ok) await refreshUsers()
-    else alert(await r.text())
+    // Mostrar confirmación
+    const result = await mostrarConfirmacion({
+      titulo: "¿Eliminar usuario?",
+      texto: `Se eliminará el usuario ${u.email}`,
+      confirmText: "Sí, eliminar",
+      cancelText: "Cancelar",
+      icono: "warning",
+    });
+
+    if (!result.isConfirmed) return;
+
+    // Llamada al backend
+    const r = await fetch(`/api/users/${u.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (r.ok) {
+      await refreshUsers();
+      mostrarExito("Usuario eliminado correctamente.");
+    } else {
+      const errorText = await r.text();
+      mostrarError(errorText || "No se pudo eliminar el usuario.");
+    }
   }
 
-  if (loading) return <p>Cargando…</p>
-  if (!me || !can('user.read')) return <p>No autorizado.</p>
+  if (loading) return <p>Cargando…</p>;
+  if (!me || !can("user.read")) return <p>No autorizado.</p>;
 
   return (
     <section className="space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Usuarios</h1>
-        {can('user.create') && (
+        {can("user.create") && (
           <button
             className="rounded-md bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700"
             onClick={() => setOpenCreate(true)}
@@ -132,20 +180,25 @@ export default function AdminUsers() {
                   <td>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
-                        u.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
+                        u.status === "ACTIVE"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-zinc-100 text-zinc-600"
                       }`}
                     >
-                      {u.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+                      {u.status === "ACTIVE" ? "Activo" : "Inactivo"}
                     </span>
                   </td>
-                  <td>{u.role?.name ?? '—'}</td>
+                  <td>{u.role?.name ?? "—"}</td>
                   <td className="text-right space-x-2">
-                    {can('user.update') && (
-                      <button className="px-2 py-1 rounded border hover:bg-zinc-50" onClick={() => setOpenEdit(u)}>
+                    {can("user.update") && (
+                      <button
+                        className="px-2 py-1 rounded border hover:bg-zinc-50"
+                        onClick={() => setOpenEdit(u)}
+                      >
                         Editar
                       </button>
                     )}
-                    {can('user.delete') && (
+                    {can("user.delete") && (
                       <button
                         className="px-2 py-1 rounded border text-rose-600 hover:bg-rose-50"
                         onClick={() => onDelete(u)}
@@ -181,17 +234,21 @@ export default function AdminUsers() {
               </div>
               <span
                 className={`px-2 py-1 rounded-full text-xs shrink-0 ${
-                  u.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
+                  u.status === "ACTIVE"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-zinc-100 text-zinc-600"
                 }`}
               >
-                {u.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+                {u.status === "ACTIVE" ? "Activo" : "Inactivo"}
               </span>
             </div>
 
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-sm text-zinc-600">{u.role?.name ?? '—'}</span>
+              <span className="text-sm text-zinc-600">
+                {u.role?.name ?? "—"}
+              </span>
               <div className="flex gap-2">
-                {can('user.update') && (
+                {can("user.update") && (
                   <button
                     className="px-2 py-1 rounded border hover:bg-zinc-50"
                     onClick={() => setOpenEdit(u)}
@@ -200,7 +257,7 @@ export default function AdminUsers() {
                     Editar
                   </button>
                 )}
-                {can('user.delete') && (
+                {can("user.delete") && (
                   <button
                     className="px-2 py-1 rounded border text-rose-600 hover:bg-rose-50"
                     onClick={() => onDelete(u)}
@@ -219,7 +276,7 @@ export default function AdminUsers() {
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
       {/* Modal Crear */}
-      {openCreate && can('user.create') && (
+      {openCreate && can("user.create") && (
         <UserModal
           title="Crear usuario"
           roles={roles}
@@ -229,7 +286,7 @@ export default function AdminUsers() {
       )}
 
       {/* Modal Editar */}
-      {openEdit && can('user.update') && (
+      {openEdit && can("user.update") && (
         <UserModal
           title={`Editar ${openEdit.email}`}
           roles={roles}
@@ -246,7 +303,7 @@ export default function AdminUsers() {
       )}
 
       {/* FAB mobile */}
-      {can('user.create') && (
+      {can("user.create") && (
         <button
           onClick={() => setOpenCreate(true)}
           className="md:hidden fixed bottom-4 right-4 h-12 w-12 rounded-full bg-emerald-600 text-white text-2xl leading-none shadow-lg"
@@ -256,62 +313,80 @@ export default function AdminUsers() {
         </button>
       )}
     </section>
-  )
+  );
 }
 
 /* ---------------- Modal reutilizable ---------------- */
 
 type ModalProps = {
-  title: string
-  roles: Role[]
-  onClose: () => void
-  onSubmit: (data: CreateForm | UpdateForm) => void
-  initial?: Partial<CreateForm & UpdateForm>
-  mode?: 'create' | 'edit'
-}
+  title: string;
+  roles: Role[];
+  onClose: () => void;
+  onSubmit: (data: CreateForm | UpdateForm) => void;
+  initial?: Partial<CreateForm & UpdateForm>;
+  mode?: "create" | "edit";
+};
 
-function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }: ModalProps) {
-  const [email, setEmail] = useState<string>(initial?.email ?? '')
-  const [firstName, setFirstName] = useState<string>(initial?.firstName ?? '')
-  const [lastName, setLastName] = useState<string>(initial?.lastName ?? '')
-  const [password, setPassword] = useState<string>('')
-  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>(initial?.status ?? 'ACTIVE')
-  const [roleId, setRoleId] = useState<number | undefined>(initial?.roleId)
+function UserModal({
+  title,
+  roles,
+  onClose,
+  onSubmit,
+  initial,
+  mode = "create",
+}: ModalProps) {
+  const [email, setEmail] = useState<string>(initial?.email ?? "");
+  const [firstName, setFirstName] = useState<string>(initial?.firstName ?? "");
+  const [lastName, setLastName] = useState<string>(initial?.lastName ?? "");
+  const [password, setPassword] = useState<string>("");
+  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">(
+    initial?.status ?? "ACTIVE"
+  );
+  const [roleId, setRoleId] = useState<number | undefined>(initial?.roleId);
 
-  const isEdit = mode === 'edit'
+  const isEdit = mode === "edit";
   const canSubmit = useMemo(() => {
-    if (isEdit) return !!firstName && !!lastName
-    return !!email && !!firstName && !!lastName && password.length >= 6
-  }, [email, firstName, lastName, password, isEdit])
+    if (isEdit) return !!firstName && !!lastName;
+    return !!email && !!firstName && !!lastName && password.length >= 6;
+  }, [email, firstName, lastName, password, isEdit]);
 
   // Esc para cerrar + bloquear scroll del fondo
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onEsc as unknown as EventListener)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onEsc as unknown as EventListener);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', onEsc as unknown as EventListener)
-      document.body.style.overflow = prev
-    }
-  }, [onClose])
+      document.removeEventListener(
+        "keydown",
+        onEsc as unknown as EventListener
+      );
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
 
   function submit() {
     if (isEdit) {
-      const payload: UpdateForm = { firstName, lastName, status, roleId }
-      if (password) payload.password = password
-      onSubmit(payload)
+      const payload: UpdateForm = { firstName, lastName, status, roleId };
+      if (password) payload.password = password;
+      onSubmit(payload);
     } else {
-      const payload: CreateForm = { email, firstName, lastName, password, roleId }
-      onSubmit(payload)
+      const payload: CreateForm = {
+        email,
+        firstName,
+        lastName,
+        password,
+        roleId,
+      };
+      onSubmit(payload);
     }
   }
 
   const onBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.currentTarget === e.target) onClose()
-  }
+    if (e.currentTarget === e.target) onClose();
+  };
 
   return (
     <div
@@ -324,7 +399,11 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
         {/* Header sticky */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b bg-white">
           <h3 className="text-lg font-semibold">{title}</h3>
-          <button className="p-2 rounded hover:bg-zinc-100" onClick={onClose} aria-label="Cerrar">
+          <button
+            className="p-2 rounded hover:bg-zinc-100"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
             ✕
           </button>
         </div>
@@ -337,7 +416,9 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
               placeholder="email"
               type="email"
               value={email}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setEmail(e.target.value)
+              }
               required
             />
           )}
@@ -347,24 +428,32 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
               className="border rounded-md px-3 py-2"
               placeholder="Nombre"
               value={firstName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFirstName(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setFirstName(e.target.value)
+              }
               required
             />
             <input
               className="border rounded-md px-3 py-2"
               placeholder="Apellido"
               value={lastName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setLastName(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setLastName(e.target.value)
+              }
               required
             />
           </div>
 
           <input
             className="border rounded-md px-3 py-2"
-            placeholder={isEdit ? 'Cambiar contraseña (opcional)' : 'Contraseña'}
+            placeholder={
+              isEdit ? "Cambiar contraseña (opcional)" : "Contraseña"
+            }
             type="password"
             value={password}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
             required={!isEdit}
           />
 
@@ -373,7 +462,7 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
               className="border rounded-md px-3 py-2"
               value={status}
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setStatus(e.target.value as 'ACTIVE' | 'INACTIVE')
+                setStatus(e.target.value as "ACTIVE" | "INACTIVE")
               }
             >
               <option value="ACTIVE">Activo</option>
@@ -383,7 +472,7 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
 
           <select
             className="border rounded-md px-3 py-2"
-            value={roleId ?? ''}
+            value={roleId ?? ""}
             onChange={(e: ChangeEvent<HTMLSelectElement>) =>
               setRoleId(e.target.value ? Number(e.target.value) : undefined)
             }
@@ -399,7 +488,10 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
 
         {/* Footer sticky */}
         <div className="sticky bottom-0 z-10 px-5 py-3 border-t bg-white flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button className="px-3 py-2 rounded border hover:bg-zinc-50" onClick={onClose}>
+          <button
+            className="px-3 py-2 rounded border hover:bg-zinc-50"
+            onClick={onClose}
+          >
             Cancelar
           </button>
           <button
@@ -407,10 +499,10 @@ function UserModal({ title, roles, onClose, onSubmit, initial, mode = 'create' }
             disabled={!canSubmit}
             onClick={submit}
           >
-            {isEdit ? 'Guardar cambios' : 'Crear'}
+            {isEdit ? "Guardar cambios" : "Crear"}
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
