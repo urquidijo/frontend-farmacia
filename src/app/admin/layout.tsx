@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+//import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AdminSidebar from "@/components/AdminSidebar";
 
@@ -21,6 +22,7 @@ export default function AdminLayout({
   const [loading, setLoading] = useState(true);
   const [openMobile, setOpenMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const can = (p: string) => Boolean(me?.permissions?.includes(p));
 
@@ -42,6 +44,23 @@ export default function AdminLayout({
     window.addEventListener("auth:changed", onAuth);
     return () => window.removeEventListener("auth:changed", onAuth);
   }, [fetchMe]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    // Focus the first focusable element in the menu
+    const firstElement = menuRef.current?.querySelector<HTMLElement>('a[href], button');
+    firstElement?.focus();
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
   const initials = useMemo(() => {
     if (!me) return "??";
@@ -79,7 +98,8 @@ export default function AdminLayout({
             aria-expanded={openMobile}
             aria-controls="mobile-sidebar"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24">
+            
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M4 6h16M4 12h16M4 18h16"
                 stroke="currentColor"
@@ -101,6 +121,7 @@ export default function AdminLayout({
               className="h-4 w-4 text-zinc-500"
               viewBox="0 0 24 24"
               fill="none"
+              aria-hidden="true"
             >
               <path
                 d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
@@ -115,7 +136,8 @@ export default function AdminLayout({
           </div>
 
           {/* Perfil */}
-          <div className="ml-auto relative">
+          
+          <div className="ml-auto relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="flex items-center gap-2 rounded-full hover:bg-zinc-100 px-2 py-1"
@@ -132,6 +154,7 @@ export default function AdminLayout({
                 className="h-4 w-4 text-zinc-500"
                 viewBox="0 0 20 20"
                 fill="currentColor"
+                aria-hidden="true"
               >
                 <path d="M5 7l5 5 5-5" />
               </svg>
@@ -199,6 +222,7 @@ export default function AdminLayout({
           className={`absolute top-14 bottom-0 left-0 w-72 max-w-[80%] bg-white shadow-xl transform transition-transform ${
             openMobile ? "translate-x-0" : "-translate-x-full"
           }`}
+          {...(!openMobile && { inert: "" })}
         >
           <AdminSidebar onNavigate={() => setOpenMobile(false)} />
         </div>

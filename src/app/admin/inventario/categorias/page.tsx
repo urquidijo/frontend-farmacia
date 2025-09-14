@@ -3,31 +3,31 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { Producto } from "@/lib/types/producto";
-import ProductoTable from "./components/ProductoTable";
+import { Categoria } from "@/lib/types/categoria";
+import CategoriaTable from "./components/CategoriaTable";
 import Swal from "sweetalert2";
 
-export default function ProductosPage() {
-  const [productos, setProductos] = useState<Producto[]>([]);
+export default function CategoriasPage() {
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProductos();
+    fetchCategorias();
   }, []);
 
-  const fetchProductos = async () => {
+  const fetchCategorias = async () => {
     try {
-      const response = await fetch("/api/productos");
+      const response = await fetch("/api/categorias");
       if (!response.ok) {
         if (response.status === 404) {
-          setProductos([]);
+          setCategorias([]);
           return;
         }
-        throw new Error("Error al cargar productos");
+        throw new Error("Error al cargar categorías");
       }
       
       const data = await response.json();
-      setProductos(Array.isArray(data) ? data : []);
+      setCategorias(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error:", error);
       Swal.fire({
@@ -35,7 +35,7 @@ export default function ProductosPage() {
         title: "Error de conexión",
         text: "No se pudo conectar con el servidor. Verifica tu conexión.",
       });
-      setProductos([]);
+      setCategorias([]);
     } finally {
       setLoading(false);
     }
@@ -55,25 +55,25 @@ export default function ProductosPage() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`/api/productos/${id}`, {
+        const response = await fetch(`/api/categorias/${id}`, {
           method: "DELETE",
         });
 
-        if (!response.ok) throw new Error("Error al eliminar producto");
+        if (!response.ok) throw new Error("Error al eliminar categoría");
 
-        setProductos(productos.filter((producto) => producto.id !== id));
+        setCategorias(categorias.filter((categoria) => categoria.id !== id));
         
         Swal.fire({
           icon: "success",
           title: "Eliminado",
-          text: "El producto ha sido eliminado correctamente",
+          text: "La categoría ha sido eliminada correctamente",
         });
       } catch (error) {
         console.error("Error:", error);
         Swal.fire({
           icon: "error",
           title: "Error",
-          text: "No se pudo eliminar el producto",
+          text: "No se pudo eliminar la categoría",
         });
       }
     }
@@ -91,27 +91,27 @@ export default function ProductosPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Productos</h1>
-          <p className="text-gray-600">Administra el catálogo de productos</p>
+          <h1 className="text-2xl font-bold text-gray-900">Gestión de Categorías</h1>
+          <p className="text-gray-600">Administra las categorías de productos</p>
         </div>
         
         <Link
-          href="/admin/inventario/productos/crear"
+          href="/admin/inventario/categorias/crear"
           className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           <Plus size={20} className="mr-2" />
-          Nuevo Producto
+          Nueva Categoría
         </Link>
       </div>
 
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">
-            Lista de Productos ({productos.length})
+            Lista de Categorías ({categorias.length})
           </h2>
         </div>
         
-        <ProductoTable productos={productos} onDelete={handleDelete} />
+        <CategoriaTable categorias={categorias} onDelete={handleDelete} />
       </div>
     </div>
   );

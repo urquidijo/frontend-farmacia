@@ -1,0 +1,70 @@
+"use client";
+
+import { Categoria } from "@/lib/types/categoria";
+import { Edit, Trash2 } from "lucide-react";
+import Link from "next/link";
+
+interface CategoriaTableProps {
+  categorias: Categoria[];
+  onDelete: (id: number) => void;
+}
+
+export default function CategoriaTable({ categorias, onDelete }: CategoriaTableProps) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-white border border-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              ID
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Nombre
+            </th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Acciones
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {categorias.length === 0 ? (
+            <tr>
+              <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                No hay categorías registradas
+              </td>
+            </tr>
+          ) : (
+            categorias.map((categoria) => (
+              <tr key={categoria.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {categoria.id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {categoria.nombre}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex justify-end gap-2">
+                    <Link
+                      href={`/admin/inventario/categorias/${categoria.id}/editar`}
+                      className="text-blue-600 hover:text-blue-900 p-1"
+                      title="Editar categoría"
+                    >
+                      <Edit size={16} />
+                    </Link>
+                    <button
+                      onClick={() => onDelete(categoria.id)}
+                      className="text-red-600 hover:text-red-900 p-1"
+                      title="Eliminar categoría"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
