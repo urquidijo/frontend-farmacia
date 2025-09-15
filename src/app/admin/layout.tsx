@@ -222,7 +222,8 @@ export default function AdminLayout({
           className={`absolute top-14 bottom-0 left-0 w-72 max-w-[80%] bg-white shadow-xl transform transition-transform ${
             openMobile ? "translate-x-0" : "-translate-x-full"
           }`}
-          {...(!openMobile && { inert: "" })}
+          inert={!openMobile}
+
         >
           <AdminSidebar onNavigate={() => setOpenMobile(false)} />
         </div>

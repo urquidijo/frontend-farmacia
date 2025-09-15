@@ -67,8 +67,8 @@ export async function POST(request: NextRequest) {
     console.error("Error creating producto:", error);
     
     if (error && typeof error === 'object' && 'issues' in error) {
-      const zodError = error as any;
-      const errorMessages = zodError.issues.map((issue: unknown) => 
+      const zodError = error as { issues: Array<{ path: string[]; message: string }> };
+      const errorMessages = zodError.issues.map((issue) => 
         `${issue.path.join('.')}: ${issue.message}`
       ).join(', ');
       

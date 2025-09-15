@@ -17,7 +17,7 @@ export default function EditarCategoriaPage() {
 
   useEffect(() => {
     fetchCategoria();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCategoria = async () => {
     try {

@@ -48,7 +48,7 @@ export default function ProductoTable({ productos, onDelete }: ProductoTableProp
             <tr key={producto.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{producto.nombre}</td>
               <td className="px-6 py-4 whitespace-nowrap text-gray-500 max-w-xs truncate">{producto.descripcion}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">{producto.stock_minimo}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">{producto.stockMinimo}</td>
               <td className="px-6 py-4 whitespace-nowrap text-center">
                 <span
                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

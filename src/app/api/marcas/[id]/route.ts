@@ -5,10 +5,11 @@ const api = process.env.NEXT_PUBLIC_API_URL
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`${api}/marcas/${params.id}`, {
+    const { id } = await params;
+    const response = await fetch(`${api}/marcas/${id}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -39,15 +40,16 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     
     // Validar datos con Zod
     const validatedData = marcaSchema.parse(body);
 
-    const response = await fetch(`${api}/marcas/${params.id}`, {
+    const response = await fetch(`${api}/marcas/${id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -87,10 +89,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`${api}/marcas/${params.id}`, {
+    const { id } = await params;
+    const response = await fetch(`${api}/marcas/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

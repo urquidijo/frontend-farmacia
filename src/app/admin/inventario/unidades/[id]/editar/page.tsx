@@ -17,7 +17,7 @@ export default function EditarUnidadPage() {
 
   useEffect(() => {
     fetchUnidad();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchUnidad = async () => {
     try {

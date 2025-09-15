@@ -17,7 +17,7 @@ export default function EditarMarcaPage() {
 
   useEffect(() => {
     fetchMarca();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchMarca = async () => {
     try {

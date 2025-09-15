@@ -17,7 +17,7 @@ export default function EditarProductoPage() {
 
   useEffect(() => {
     fetchProducto();
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProducto = async () => {
     try {
