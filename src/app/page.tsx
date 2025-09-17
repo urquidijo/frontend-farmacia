@@ -1,10 +1,63 @@
 // app/page.tsx
 'use client'
+import { useState, useEffect } from 'react'
 import Container from "@/components/Container";
 import Newsletter from "@/components/Newsletter";
 import Footer from '../components/Footer';
 
+interface Producto {
+  id: number
+  nombre: string
+  descripcion?: string
+  imageUrl?: string
+  marca: { nombre: string }
+  categoria: { nombre: string }
+}
+
+interface Categoria {
+  id: number
+  nombre: string
+}
+
 export default function HomePage() {
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+
+  useEffect(() => {
+    fetchProductos()
+    fetchCategorias()
+  }, [selectedCategory])
+
+  const fetchProductos = async () => {
+    try {
+      const params = new URLSearchParams({ limit: '8' })
+      if (selectedCategory) {
+        params.append('categoria', selectedCategory)
+      }
+
+      const response = await fetch(`/api/public/productos?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setProductos(data)
+      }
+    } catch (error) {
+      console.error('Error fetching productos:', error)
+    }
+  }
+
+  const fetchCategorias = async () => {
+    try {
+      const response = await fetch('/api/public/categorias')
+      if (response.ok) {
+        const data = await response.json()
+        setCategorias(data)
+      }
+    } catch (error) {
+      console.error('Error fetching categorias:', error)
+    }
+  }
+
   return (
     <div className="space-y-12 md:space-y-16">
       {/* HERO: fondo a todo el ancho, contenido contenido dentro del Container */}
@@ -41,43 +94,73 @@ export default function HomePage() {
         <Container className="space-y-4">
           <h2 className="text-xl font-semibold">Categorías</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { title: 'Dolor y fiebre', cat: 'analgesicos' },
-              { title: 'Gripe y resfrío', cat: 'antigripales' },
-              { title: 'Dermocosmética', cat: 'dermocosmetica' },
-              { title: 'Bebés', cat: 'bebe' },
-            ].map((c) => (
-              <a key={c.cat} href={`/productos?cat=${c.cat}`} className="group rounded-2xl border p-5 hover:shadow-md transition bg-white">
-                <div className="h-24 rounded-xl bg-zinc-100 mb-3 grid place-items-center text-zinc-400">Imagen</div>
-                <div className="font-medium group-hover:text-emerald-700">{c.title}</div>
+            <button
+              onClick={() => setSelectedCategory('')}
+              className={`group rounded-2xl border p-5 hover:shadow-md transition ${
+                selectedCategory === '' ? 'bg-emerald-50 border-emerald-200' : 'bg-white'
+              }`}
+            >
+              <div className="h-24 rounded-xl bg-zinc-100 mb-3 grid place-items-center text-zinc-400">📦</div>
+              <div className={`font-medium ${selectedCategory === '' ? 'text-emerald-700' : 'group-hover:text-emerald-700'}`}>
+                Todos los productos
+              </div>
+              <div className="text-sm text-zinc-600">Ver todos →</div>
+            </button>
+            {categorias.slice(0, 3).map((categoria) => (
+              <button
+                key={categoria.id}
+                onClick={() => setSelectedCategory(categoria.nombre)}
+                className={`group rounded-2xl border p-5 hover:shadow-md transition ${
+                  selectedCategory === categoria.nombre ? 'bg-emerald-50 border-emerald-200' : 'bg-white'
+                }`}
+              >
+                <div className="h-24 rounded-xl bg-zinc-100 mb-3 grid place-items-center text-zinc-400">🏷️</div>
+                <div className={`font-medium ${selectedCategory === categoria.nombre ? 'text-emerald-700' : 'group-hover:text-emerald-700'}`}>
+                  {categoria.nombre}
+                </div>
                 <div className="text-sm text-zinc-600">Ver productos →</div>
-              </a>
+              </button>
             ))}
           </div>
         </Container>
       </section>
 
-      {/* MÁS VENDIDOS */}
+      {/* PRODUCTOS DESTACADOS */}
       <section>
         <Container className="space-y-4">
-          <h2 className="text-xl font-semibold">Más vendidos</h2>
+          <h2 className="text-xl font-semibold">
+            {selectedCategory ? `Productos de ${selectedCategory}` : 'Productos destacados'}
+          </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { nombre: 'Paracetamol 500mg x10', precio: 10.5, marca: 'Genfar' },
-              { nombre: 'Ibuprofeno 400mg x10', precio: 12.0, marca: 'Bagó' },
-              { nombre: 'Protector Solar FPS50 50ml', precio: 90.0, marca: 'Isdin' },
-              { nombre: 'Pañales M x36', precio: 65.0, marca: 'Huggies' },
-            ].map((p, i) => (
-              <div key={i} className="rounded-2xl border p-4 hover:shadow-md transition bg-white">
-                <div className="h-32 bg-zinc-100 rounded-lg mb-3 grid place-items-center text-zinc-400">Imagen</div>
-                <div className="text-sm text-zinc-500">{p.marca}</div>
-                <div className="font-medium">{p.nombre}</div>
-                <div className="text-emerald-700 font-semibold">Bs. {p.precio.toFixed(2)}</div>
-                <button className="mt-2 bg-emerald-600 text-white rounded-md px-3 py-1.5 hover:bg-emerald-700">
-                  Agregar
-                </button>
+            {productos.length > 0 ? (
+              productos.map((producto) => (
+                <div key={producto.id} className="rounded-2xl border p-4 hover:shadow-md transition bg-white">
+                  <div className="h-32 bg-zinc-100 rounded-lg mb-3 grid place-items-center overflow-hidden">
+                    {producto.imageUrl ? (
+                      <img
+                        src={producto.imageUrl}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <span className="text-zinc-400">Sin imagen</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-zinc-500">{producto.marca.nombre}</div>
+                  <div className="font-medium text-sm">{producto.nombre}</div>
+                  {producto.descripcion && (
+                    <div className="text-xs text-zinc-600 mt-1 line-clamp-2">{producto.descripcion}</div>
+                  )}
+                  <div className="text-emerald-700 font-semibold mt-2">Disponible</div>
+                  <button className="mt-2 w-full bg-emerald-600 text-white rounded-md px-3 py-1.5 hover:bg-emerald-700 text-sm">
+                    Ver detalles
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8 text-zinc-500">
+                {selectedCategory ? `No hay productos en la categoría "${selectedCategory}"` : 'No hay productos disponibles'}
               </div>
-            ))}
+            )}
           </div>
         </Container>
       </section>
