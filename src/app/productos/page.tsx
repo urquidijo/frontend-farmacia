@@ -15,7 +15,7 @@ export default function ProductosPage() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/productos`, {
       credentials: "include",
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
