@@ -1,31 +1,51 @@
-'use client'
+"use client";
 
 type Props = {
-  nombre: string
-  precio: number
-  imagen?: string
-  marca?: string
-}
+  nombre: string;
+  precio: number;
+  imagen?: string;
+  marca?: string;
+};
 
 export default function ProductCard({ nombre, precio, imagen, marca }: Props) {
   return (
-    <div className="border rounded-xl p-3 flex flex-col gap-2">
-      <div className="h-36 bg-zinc-100 rounded-lg flex items-center justify-center overflow-hidden">
+    <div className="rounded-2xl border bg-white shadow-sm hover:shadow-lg transition overflow-hidden group flex flex-col">
+      {/* Imagen */}
+      <div className="h-40 bg-zinc-100 flex items-center justify-center overflow-hidden">
         {imagen ? (
-          <img src={imagen} alt={nombre} className="h-full" />
+          <img
+            src={imagen}
+            alt={nombre}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
         ) : (
           <span className="text-xs text-zinc-500">Imagen no disponible</span>
         )}
       </div>
-      <div className="text-sm text-zinc-500">{marca || 'Genérico'}</div>
-      <div className="font-medium">{nombre}</div>
-      <div className="text-emerald-700 font-semibold">Bs. {precio.toFixed(2)}</div>
-      <button
-        className="mt-1 bg-emerald-600 text-white rounded-md px-3 py-1.5"
-        onClick={() => alert('Agregar al carrito (por ahora cliente-side)')}
-      >
-        Agregar
-      </button>
+
+      {/* Info */}
+      <div className="p-4 flex flex-col flex-1 space-y-2">
+        <span className="text-xs text-emerald-700 font-medium bg-emerald-50 rounded px-2 py-0.5 self-start">
+          {marca || "Genérico"}
+        </span>
+
+        <h3 className="text-sm font-semibold text-zinc-800 line-clamp-2 flex-1">
+          {nombre}
+        </h3>
+
+        <p className="text-emerald-700 font-bold text-base">
+          Bs. {precio.toFixed(2)}
+        </p>
+
+        <button
+          className="mt-auto w-full bg-emerald-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 active:bg-emerald-800 transition"
+          onClick={() =>
+            alert("Agregar al carrito (por ahora cliente-side)")
+          }
+        >
+          🛒 Agregar
+        </button>
+      </div>
     </div>
-  )
+  );
 }
