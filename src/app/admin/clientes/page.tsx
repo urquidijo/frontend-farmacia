@@ -102,11 +102,11 @@ export default function ClientesAdmin() {
         const error = await response.text()
         throw new Error(error)
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error:', error)
       Swal.fire({
         title: 'Error',
-        text: error.message || 'Hubo un problema al guardar el cliente',
+        text: error instanceof Error ? error.message : 'Hubo un problema al guardar el cliente',
         icon: 'error',
       })
     }

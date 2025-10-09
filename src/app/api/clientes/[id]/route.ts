@@ -4,9 +4,10 @@ const api = process.env.NEXT_PUBLIC_API_URL;
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const r = await fetch(`${api}/clientes/${params.id}`, {
+  const { id } = await params;
+  const r = await fetch(`${api}/clientes/${id}`, {
     headers: { cookie: req.headers.get('cookie') ?? '' },
     credentials: 'include',
     cache: 'no-store',
@@ -20,11 +21,12 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json().catch(() => ({}));
 
-  const r = await fetch(`${api}/clientes/${params.id}`, {
+  const r = await fetch(`${api}/clientes/${id}`, {
     method: 'PATCH',
     headers: {
       'content-type': 'application/json',
@@ -42,9 +44,10 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const r = await fetch(`${api}/clientes/${params.id}`, {
+  const { id } = await params;
+  const r = await fetch(`${api}/clientes/${id}`, {
     method: 'DELETE',
     headers: { cookie: req.headers.get('cookie') ?? '' },
     credentials: 'include',
