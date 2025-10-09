@@ -8,6 +8,7 @@ interface Producto {
   id: number
   nombre: string
   descripcion?: string
+  precio: number
   imageUrl?: string   // 👈 viene directo de S3
   marca: { nombre: string }
   categoria: { nombre: string }
@@ -161,7 +162,9 @@ export default function HomePage() {
                     {producto.descripcion && (
                       <p className="text-xs text-zinc-600 line-clamp-2">{producto.descripcion}</p>
                     )}
-                    <div className="text-emerald-700 font-bold mt-2">Disponible</div>
+                    <div className="text-emerald-700 font-bold text-lg mt-2">
+                      Bs. {Number(producto.precio).toFixed(2)}
+                    </div>
                     <button className="w-full mt-2 bg-emerald-600 text-white rounded-lg py-2 text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition">
                       🛒 Agregar
                     </button>
