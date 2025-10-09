@@ -5,18 +5,28 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import UserMenu, { Me } from './UserMenu'
 import { usePathname } from 'next/navigation'
+import { ShoppingCart } from 'lucide-react'
 
 export default function NavBar() {
   const pathname = usePathname()
   const [me, setMe] = useState<Me | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [carritoCount, setCarritoCount] = useState(0)
   const can = (p: string) => Boolean(me?.permissions?.includes(p))
 
   const fetchMe = useCallback(async () => {
     try {
       const r = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
-      setMe(r.ok ? ((await r.json()) as Me) : null)
+      const user = r.ok ? ((await r.json()) as Me) : null
+      setMe(user)
+
+      // Si está autenticado, obtener el carrito
+      if (user) {
+        fetchCarritoCount()
+      } else {
+        setCarritoCount(0)
+      }
     } catch {
       // noop
     } finally {
@@ -24,23 +34,38 @@ export default function NavBar() {
     }
   }, [])
 
+  const fetchCarritoCount = async () => {
+    try {
+      const response = await fetch('/api/carrito', { credentials: 'include' })
+      if (response.ok) {
+        const items = await response.json()
+        setCarritoCount(items.length)
+      }
+    } catch {
+      // noop
+    }
+  }
+
   useEffect(() => {
     fetchMe()
 
     const onAuthChanged = () => { void fetchMe() }
     const onFocus = () => { void fetchMe() }
     const onVisible = () => { if (!document.hidden) void fetchMe() }
+    const onCarritoChanged = () => { if (me) void fetchCarritoCount() }
 
     window.addEventListener('auth:changed', onAuthChanged)
     window.addEventListener('focus', onFocus)
+    window.addEventListener('carrito:changed', onCarritoChanged)
     document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       window.removeEventListener('auth:changed', onAuthChanged)
       window.removeEventListener('focus', onFocus)
+      window.removeEventListener('carrito:changed', onCarritoChanged)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [fetchMe])
+  }, [fetchMe, me])
 
   const isAdminPath = pathname?.startsWith('/admin')
   if (isAdminPath) return null
@@ -110,6 +135,22 @@ export default function NavBar() {
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-3">
+            {/* Botón carrito */}
+            {me && (
+              <Link
+                href="/carrito"
+                className="relative p-2 hover:bg-gray-100 rounded-full transition"
+                title="Ver carrito"
+              >
+                <ShoppingCart size={22} className="text-gray-700" />
+                {carritoCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {carritoCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
             {loading ? (
               <span className="text-xs text-zinc-500">Cargando…</span>
             ) : me ? (
@@ -134,6 +175,21 @@ export default function NavBar() {
         {mobileOpen && (
           <div className="md:hidden pb-3 border-t text-sm">
             <nav className="flex flex-col gap-2 pt-3">
+              {me && (
+                <Link
+                  href="/carrito"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-2 py-1 rounded hover:bg-zinc-50 flex items-center gap-2"
+                >
+                  <ShoppingCart size={18} />
+                  <span>Mi Carrito</span>
+                  {carritoCount > 0 && (
+                    <span className="ml-auto bg-emerald-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {carritoCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               {links.map(link => {
                 const isActive = pathname === link.href
                 return (
