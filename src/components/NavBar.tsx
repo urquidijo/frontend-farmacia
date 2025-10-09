@@ -47,9 +47,8 @@ export default function NavBar() {
 
   const links = [
     { href: '/productos', label: 'Productos' },
-    { href: '/productos?cat=dermocosmética', label: 'Dermocosmética' },
-    { href: '/productos?cat=bebe', label: 'Bebés' },
-    { href: '/productos?cat=vitaminas', label: 'Vitaminas' },
+    { href: '/facturas', label: 'Mis Facturas' },
+
   ]
 
   return (

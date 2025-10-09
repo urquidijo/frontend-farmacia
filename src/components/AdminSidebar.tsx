@@ -64,7 +64,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Clientes", href: "/admin/clientes" },
       { label: "Pedidos", href: "/admin/ventas/pedidos" },
-      { label: "Pagos", href: "/admin/ventas/pagos" },
+      { label: "Facturas", href: "/admin/ventas/facturas" },
     ],
   },
   {
