@@ -34,9 +34,9 @@ export default function NavBar() {
     }
   }, [])
 
-  const fetchCarritoCount = async () => {
+  const fetchCarritoCount = useCallback(async () => {
     try {
-      const response = await fetch('/api/carrito', { credentials: 'include' })
+      const response = await fetch('/api/carrito', { credentials: 'include', cache: 'no-store' })
       if (response.ok) {
         const items = await response.json()
         setCarritoCount(items.length)
@@ -44,28 +44,23 @@ export default function NavBar() {
     } catch {
       // noop
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchMe()
 
+    // Solo escuchar cambios importantes, no focus/visibility
     const onAuthChanged = () => { void fetchMe() }
-    const onFocus = () => { void fetchMe() }
-    const onVisible = () => { if (!document.hidden) void fetchMe() }
-    const onCarritoChanged = () => { if (me) void fetchCarritoCount() }
+    const onCarritoChanged = () => { void fetchCarritoCount() }
 
     window.addEventListener('auth:changed', onAuthChanged)
-    window.addEventListener('focus', onFocus)
     window.addEventListener('carrito:changed', onCarritoChanged)
-    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       window.removeEventListener('auth:changed', onAuthChanged)
-      window.removeEventListener('focus', onFocus)
       window.removeEventListener('carrito:changed', onCarritoChanged)
-      document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [fetchMe, me])
+  }, [fetchMe, fetchCarritoCount])
 
   const isAdminPath = pathname?.startsWith('/admin')
   if (isAdminPath) return null

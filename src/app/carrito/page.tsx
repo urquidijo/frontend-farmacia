@@ -58,6 +58,7 @@ export default function CarritoPage() {
     try {
       const response = await fetch('/api/carrito', {
         credentials: 'include',
+        cache: 'no-store',
       })
       if (response.ok) {
         const data = await response.json()
@@ -71,7 +72,11 @@ export default function CarritoPage() {
   }
 
   const updateCantidad = async (itemId: number, newCantidad: number) => {
-    if (newCantidad < 1) return
+    // Si la cantidad es 0 o menos, eliminar el item sin confirmación
+    if (newCantidad < 1) {
+      await removeItem(itemId, true)
+      return
+    }
 
     try {
       const response = await fetch(`/api/carrito/${itemId}`, {
@@ -83,38 +88,46 @@ export default function CarritoPage() {
 
       if (response.ok) {
         fetchCarrito()
+        // Disparar evento para actualizar contador
+        window.dispatchEvent(new Event('carrito:changed'))
       }
     } catch (error) {
       console.error('Error updating cantidad:', error)
     }
   }
 
-  const removeItem = async (itemId: number) => {
-    const result = await Swal.fire({
-      title: '¿Eliminar producto?',
-      text: 'Se quitará del carrito',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-    })
+  const removeItem = async (itemId: number, skipConfirmation = false) => {
+    if (!skipConfirmation) {
+      const result = await Swal.fire({
+        title: '¿Eliminar producto?',
+        text: 'Se quitará del carrito',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+      })
 
-    if (result.isConfirmed) {
-      try {
-        const response = await fetch(`/api/carrito/${itemId}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        })
+      if (!result.isConfirmed) return
+    }
 
-        if (response.ok) {
+    try {
+      const response = await fetch(`/api/carrito/${itemId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        if (!skipConfirmation) {
           Swal.fire('Eliminado', 'Producto quitado del carrito', 'success')
-          fetchCarrito()
         }
-      } catch (error) {
-        console.error('Error removing item:', error)
+        fetchCarrito()
+        // Disparar evento para actualizar contador
+        window.dispatchEvent(new Event('carrito:changed'))
       }
+    } catch (error) {
+      console.error('Error removing item:', error)
     }
   }
 
@@ -144,6 +157,8 @@ export default function CarritoPage() {
             icon: 'success',
           })
           setItems([])
+          // Disparar evento para actualizar contador
+          window.dispatchEvent(new Event('carrito:changed'))
         } else {
           throw new Error('Error al procesar')
         }
