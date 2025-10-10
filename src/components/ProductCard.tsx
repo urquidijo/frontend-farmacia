@@ -1,13 +1,70 @@
 "use client";
 
+import { useState } from 'react';
+import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation';
+
 type Props = {
+  productoId: number;
   nombre: string;
   precio: number;
   imagen?: string;
   marca?: string;
 };
 
-export default function ProductCard({ nombre, precio, imagen, marca }: Props) {
+export default function ProductCard({ productoId, nombre, precio, imagen, marca }: Props) {
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const addToCarrito = async () => {
+    setLoading(true);
+
+    try {
+      // Verificar si está autenticado
+      const authResponse = await fetch('/api/me', { credentials: 'include' });
+
+      if (!authResponse.ok) {
+        Swal.fire({
+          title: 'Debes iniciar sesión',
+          text: 'Para agregar productos al carrito, inicia sesión',
+          icon: 'info',
+          confirmButtonText: 'Ir a login',
+        }).then(() => {
+          router.push('/login');
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Agregar al carrito
+      const response = await fetch('/api/carrito', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ productoId, cantidad: 1 }),
+      });
+
+      if (response.ok) {
+        Swal.fire({
+          title: '¡Agregado!',
+          text: 'Producto agregado al carrito',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        // Disparar evento para actualizar contador del carrito
+        window.dispatchEvent(new Event('carrito:changed'));
+      } else {
+        throw new Error('Error al agregar');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Swal.fire('Error', 'No se pudo agregar al carrito', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl border bg-white shadow-sm hover:shadow-lg transition overflow-hidden group flex flex-col">
       {/* Imagen */}
@@ -38,12 +95,11 @@ export default function ProductCard({ nombre, precio, imagen, marca }: Props) {
         </p>
 
         <button
-          className="mt-auto w-full bg-emerald-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 active:bg-emerald-800 transition"
-          onClick={() =>
-            alert("Agregar al carrito (por ahora cliente-side)")
-          }
+          className="mt-auto w-full bg-emerald-600 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 active:bg-emerald-800 transition disabled:opacity-50"
+          onClick={addToCarrito}
+          disabled={loading}
         >
-          🛒 Agregar
+          {loading ? '⏳ Agregando...' : '🛒 Agregar'}
         </button>
       </div>
     </div>

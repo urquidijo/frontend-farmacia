@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Swal from 'sweetalert2'
 import Container from "@/components/Container";
 import Newsletter from "@/components/Newsletter";
 import Footer from '../components/Footer';
@@ -8,6 +10,7 @@ interface Producto {
   id: number
   nombre: string
   descripcion?: string
+  precio: number
   imageUrl?: string   // 👈 viene directo de S3
   marca: { nombre: string }
   categoria: { nombre: string }
@@ -22,6 +25,8 @@ export default function HomePage() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [addingToCart, setAddingToCart] = useState<number | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     fetchProductos()
@@ -56,6 +61,55 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('Error fetching categorias:', error)
+    }
+  }
+
+  const addToCarrito = async (productoId: number) => {
+    setAddingToCart(productoId)
+
+    try {
+      // Verificar si está autenticado
+      const authResponse = await fetch('/api/me', { credentials: 'include' })
+
+      if (!authResponse.ok) {
+        Swal.fire({
+          title: 'Debes iniciar sesión',
+          text: 'Para agregar productos al carrito, inicia sesión',
+          icon: 'info',
+          confirmButtonText: 'Ir a login',
+        }).then(() => {
+          router.push('/login')
+        })
+        setAddingToCart(null)
+        return
+      }
+
+      // Agregar al carrito
+      const response = await fetch('/api/carrito', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ productoId, cantidad: 1 }),
+      })
+
+      if (response.ok) {
+        Swal.fire({
+          title: '¡Agregado!',
+          text: 'Producto agregado al carrito',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        // Disparar evento para actualizar contador del carrito
+        window.dispatchEvent(new Event('carrito:changed'))
+      } else {
+        throw new Error('Error al agregar')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      Swal.fire('Error', 'No se pudo agregar al carrito', 'error')
+    } finally {
+      setAddingToCart(null)
     }
   }
 
@@ -161,9 +215,15 @@ export default function HomePage() {
                     {producto.descripcion && (
                       <p className="text-xs text-zinc-600 line-clamp-2">{producto.descripcion}</p>
                     )}
-                    <div className="text-emerald-700 font-bold mt-2">Disponible</div>
-                    <button className="w-full mt-2 bg-emerald-600 text-white rounded-lg py-2 text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition">
-                      🛒 Agregar
+                    <div className="text-emerald-700 font-bold text-lg mt-2">
+                      Bs. {Number(producto.precio).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => addToCarrito(producto.id)}
+                      disabled={addingToCart === producto.id}
+                      className="w-full mt-2 bg-emerald-600 text-white rounded-lg py-2 text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition disabled:opacity-50"
+                    >
+                      {addingToCart === producto.id ? '⏳ Agregando...' : '🛒 Agregar'}
                     </button>
                   </div>
                 </div>

@@ -143,6 +143,7 @@ export default function ProductosPage() {
                     {productosDeCat.map((p) => (
                       <ProductCard
                         key={p.id}
+                        productoId={p.id}
                         nombre={p.nombre}
                         precio={p.precio ?? 0}
                         imagen={p.imageUrl}   // 👈 Aquí va directo desde S3

@@ -8,6 +8,7 @@ interface Producto {
   id: number
   nombre: string
   descripcion?: string
+  precio: number
   stockMinimo: number
   activo: boolean
   imageUrl?: string
@@ -58,6 +59,7 @@ export default function ProductosAdmin() {
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
+    precio: 0,
     stockMinimo: 0,
     activo: true,
     marcaId: '',
@@ -253,6 +255,7 @@ export default function ProductosAdmin() {
       const productData = {
         nombre: formData.nombre,
         descripcion: formData.descripcion || null,
+        precio: formData.precio,
         stockMinimo: formData.stockMinimo,
         activo: formData.activo,
         marcaId: parseInt(formData.marcaId),
@@ -300,6 +303,7 @@ export default function ProductosAdmin() {
     setFormData({
       nombre: producto.nombre,
       descripcion: producto.descripcion || '',
+      precio: Number(producto.precio),
       stockMinimo: producto.stockMinimo,
       activo: producto.activo,
       marcaId: producto.marca.id.toString(),
@@ -348,6 +352,7 @@ export default function ProductosAdmin() {
     setFormData({
       nombre: '',
       descripcion: '',
+      precio: 0,
       stockMinimo: 0,
       activo: true,
       marcaId: '',
@@ -450,6 +455,9 @@ export default function ProductosAdmin() {
                 Categoría
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Precio
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stock Mín.
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -484,6 +492,9 @@ export default function ProductosAdmin() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {producto.categoria.nombre}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  Bs. {Number(producto.precio).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {producto.stockMinimo}
@@ -568,6 +579,19 @@ export default function ProductosAdmin() {
                   rows={3}
                   value={formData.descripcion}
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Precio</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  className="mt-1 block w-full border rounded-md px-3 py-2"
+                  value={formData.precio}
+                  onChange={(e) => setFormData(prev => ({ ...prev, precio: parseFloat(e.target.value) }))}
                 />
               </div>
 
