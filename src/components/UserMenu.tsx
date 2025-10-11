@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
@@ -44,7 +46,8 @@ export default function UserMenu({ me }: Props) {
       // ❌ Si el logout falló, también registra
       await logFail("LOGOUT", { userId, ip });
     }
-  } catch (e) {
+  } catch (error) {
+    console.error("Error during logout:", error);
     await logFail("LOGOUT", {
       userId: Number(localStorage.getItem("auth.userId") ?? 0) || null,
       ip: localStorage.getItem("auth.ip") ?? null,

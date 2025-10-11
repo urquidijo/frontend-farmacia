@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Search, CheckCircle2, XCircle, Calendar, RotateCcw, Download } from 'lucide-react'
 
-// ---------------- Tipos ----------------
 export type EstadoBitacora = 'EXITOSO' | 'FALLIDO'
 
 export type UserLite = {
@@ -23,6 +22,11 @@ export type BitacoraRow = {
   // Ambos vienen YA formateados en backend a America/La_Paz
   fecha_entrada: string // YYYY-MM-DD
   hora_entrada: string  // HH:mm:ss
+}
+
+type ApiResp = {
+  items: BitacoraRow[]
+  total: number
 }
 
 // ---------------- Utils ----------------
@@ -47,19 +51,33 @@ function toCSV(rows: BitacoraRow[]) {
   return csv
 }
 
+type EstadoFiltro = EstadoBitacora | 'TODOS'
+function isEstadoFiltro(v: string): v is EstadoFiltro {
+  return v === 'TODOS' || v === 'EXITOSO' || v === 'FALLIDO'
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  try {
+    return typeof err === 'string' ? err : JSON.stringify(err)
+  } catch {
+    return 'Error desconocido'
+  }
+}
+
 // ---------------- Componente ----------------
 export default function BitacoraPage() {
   const [rows, setRows] = useState<BitacoraRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // filtros (coincidir con estilo de ClientesAdmin)
+  // filtros
   const [qNombre, setQNombre] = useState('') // nombre/apellido/email
-  const [estado, setEstado] = useState<EstadoBitacora | 'TODOS'>('TODOS')
+  const [estado, setEstado] = useState<EstadoFiltro>('TODOS')
   const [from, setFrom] = useState<string>('') // YYYY-MM-DD (zona Bolivia)
   const [to, setTo] = useState<string>('')     // YYYY-MM-DD (zona Bolivia)
 
-  // paginación (igual estilo de ClientesAdmin)
+  // paginación
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
@@ -69,11 +87,10 @@ export default function BitacoraPage() {
   // Build query string con America/La_Paz (-04:00)
   const queryString = useMemo(() => {
     const p = new URLSearchParams()
-    if (qNombre.trim()) p.set('nombre', qNombre.trim())        // <--- nombre
+    if (qNombre.trim()) p.set('nombre', qNombre.trim())
     if (estado !== 'TODOS') p.set('estado', estado)
-    // Bolivia UTC-04
-    const mkStart = (d: string) => `${d}T00:00:00-04:00`       // <--- desde
-    const mkEnd   = (d: string) => `${d}T23:59:59-04:00`       // <--- hasta
+    const mkStart = (d: string) => `${d}T00:00:00-04:00`
+    const mkEnd   = (d: string) => `${d}T23:59:59-04:00`
     if (from) p.set('desde', mkStart(from))
     if (to)   p.set('hasta', mkEnd(to))
     p.set('page', String(page))
@@ -90,14 +107,17 @@ export default function BitacoraPage() {
       try {
         const res = await fetch(`/api/bitacora?${queryString}`, { credentials: 'include', cache: 'no-store' })
         if (!res.ok) throw new Error('No se pudo cargar la bitácora')
-        const json = await res.json()
-        // Espera {items: BitacoraRow[], total:number}
-        if (!cancel) {
-          setRows(json.items ?? json ?? [])
-          setTotal(json.total ?? (json.items ? json.items.length : 0))
+        const json = (await res.json()) as ApiResp | BitacoraRow[]
+        if (cancel) return
+        if (Array.isArray(json)) {
+          setRows(json)
+          setTotal(json.length)
+        } else {
+          setRows(json.items ?? [])
+          setTotal(typeof json.total === 'number' ? json.total : (json.items?.length ?? 0))
         }
-      } catch (e: any) {
-        if (!cancel) setError(e?.message ?? 'Error cargando datos')
+      } catch (e: unknown) {
+        if (!cancel) setError(getErrorMessage(e))
       } finally {
         if (!cancel) setLoading(false)
       }
@@ -128,7 +148,7 @@ export default function BitacoraPage() {
   }
 
   return (
-    <div className="space-y-6">{/* Sin gradientes; igual a ClientesAdmin */}
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Bitácora</h1>
@@ -140,10 +160,9 @@ export default function BitacoraPage() {
         </button>
       </div>
 
-      {/* Filtros (card blanca, sombra suave) */}
+      {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Buscar por nombre/email */}
           <div className="md:col-span-5">
             <label className="block text-sm font-medium text-gray-700 mb-1">Nombre / Email</label>
             <div className="relative">
@@ -158,13 +177,18 @@ export default function BitacoraPage() {
             </div>
           </div>
 
-          {/* Estado (select, no chips) */}
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
             <select
               className="w-full pr-4 py-2 border rounded-lg"
               value={estado}
-              onChange={(e) => { setPage(1); setEstado(e.target.value as any) }}
+              onChange={(e) => {
+                const val = e.target.value
+                if (isEstadoFiltro(val)) {
+                  setPage(1)
+                  setEstado(val)
+                }
+              }}
             >
               <option value="TODOS">Todos</option>
               <option value="EXITOSO">EXITOSO</option>
@@ -172,7 +196,6 @@ export default function BitacoraPage() {
             </select>
           </div>
 
-          {/* Fechas */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Desde (BO)</label>
             <div className="relative">
@@ -198,7 +221,6 @@ export default function BitacoraPage() {
             </div>
           </div>
 
-          {/* Reset */}
           <div className="md:col-span-12 flex justify-end">
             <button
               onClick={resetFiltros}
@@ -210,7 +232,7 @@ export default function BitacoraPage() {
         </div>
       </div>
 
-      {/* Tabla (misma línea visual que ClientesAdmin) */}
+      {/* Tabla */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -263,7 +285,7 @@ export default function BitacoraPage() {
         </table>
       </div>
 
-      {/* Paginación (igual patrón que ClientesAdmin) */}
+      {/* Paginación */}
       <div className="flex justify-between items-center">
         <div className="text-sm text-gray-700">
           Página {page} de {totalPages}
@@ -300,7 +322,6 @@ export default function BitacoraPage() {
   )
 }
 
-// ---------------- Subcomponentes ----------------
 function EstadoBadge({ estado }: { estado: EstadoBitacora }) {
   return (
     <span
@@ -314,13 +335,3 @@ function EstadoBadge({ estado }: { estado: EstadoBitacora }) {
     </span>
   )
 }
-
-// ---------------- Notas de backend ----------------
-// GET /api/bitacora debe aceptar:
-//   nombre: string   -> filtra por firstName, lastName o email (contains/ilike)
-//   estado: 'EXITOSO' | 'FALLIDO'
-//   desde: 'YYYY-MM-DDT00:00:00-04:00' (America/La_Paz)
-//   hasta: 'YYYY-MM-DDT23:59:59-04:00' (America/La_Paz)
-//   page: number
-//   pageSize: number
-// Responder { items: BitacoraRow[], total: number } con fecha_entrada y hora_entrada ya formateadas en BO.

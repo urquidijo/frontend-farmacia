@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
-import { logOk, logFail } from "@/lib/bitacora";
 
 interface Producto {
   id: number;
@@ -25,8 +24,6 @@ export default function ProductosPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
-  const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
-  const ip = localStorage.getItem("auth.ip") ?? null;
 
   useEffect(() => {
     const fetchData = async () => {
