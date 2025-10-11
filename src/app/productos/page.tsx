@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
+import { logOk, logFail } from "@/lib/bitacora";
 
 interface Producto {
   id: number;
   nombre: string;
   descripcion?: string;
-  imageUrl?: string;  // 👈 Viene directo de S3
+  imageUrl?: string; // 👈 Viene directo de S3
   imageKey?: string;
   marca: { nombre: string };
   categoria: { nombre: string };
@@ -24,6 +25,8 @@ export default function ProductosPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+  const ip = localStorage.getItem("auth.ip") ?? null;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +38,7 @@ export default function ProductosPage() {
 
         if (prodRes.ok) {
           const data = await prodRes.json();
+          // await logOk("Cargar Productos", { userId, ip });
           console.log("📦 Productos desde API:", data);
           setProductos(data);
         }
@@ -75,7 +79,8 @@ export default function ProductosPage() {
             Nuestros productos
           </h1>
           <p className="text-zinc-600 text-sm">
-            Explora nuestro catálogo de medicamentos, dermocosmética y bienestar.
+            Explora nuestro catálogo de medicamentos, dermocosmética y
+            bienestar.
           </p>
         </div>
 
@@ -146,7 +151,7 @@ export default function ProductosPage() {
                         productoId={p.id}
                         nombre={p.nombre}
                         precio={p.precio ?? 0}
-                        imagen={p.imageUrl}   // 👈 Aquí va directo desde S3
+                        imagen={p.imageUrl} // 👈 Aquí va directo desde S3
                         marca={p.marca?.nombre}
                       />
                     ))}
@@ -159,7 +164,8 @@ export default function ProductosPage() {
 
         {/* Nota legal */}
         <p className="text-xs text-zinc-500 border-t pt-4 text-center">
-          ⚠️ Los medicamentos de venta bajo receta solo se expenden según normativa vigente.
+          ⚠️ Los medicamentos de venta bajo receta solo se expenden según
+          normativa vigente.
         </p>
       </div>
     </section>

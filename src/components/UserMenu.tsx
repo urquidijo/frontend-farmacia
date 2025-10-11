@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
+import { logOk, logFail } from "@/lib/bitacora"; // <--- agrega esto
 
 export type Me = {
   id: number;
@@ -26,11 +27,39 @@ export default function UserMenu({ me }: Props) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  async function onLogout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+ async function onLogout() {
+  try {
+    const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+    const ip = localStorage.getItem("auth.ip") ?? null;
+    await logOk("LOGOUT", { userId, ip });
+    const res = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      // ✅ Registrar en bitácora
+      
+    } else {
+      // ❌ Si el logout falló, también registra
+      await logFail("LOGOUT", { userId, ip });
+    }
+  } catch (e) {
+    await logFail("LOGOUT", {
+      userId: Number(localStorage.getItem("auth.userId") ?? 0) || null,
+      ip: localStorage.getItem("auth.ip") ?? null,
+    });
+  } finally {
+    // 🔄 Limpiar sesión local y redirigir
+    localStorage.removeItem("auth.userId");
+    localStorage.removeItem("auth.email");
+    localStorage.removeItem("auth.ip");
+
     window.dispatchEvent(new Event("auth:changed"));
     location.assign("/");
   }
+}
+
 
   return (
     <div ref={ref} className="relative">

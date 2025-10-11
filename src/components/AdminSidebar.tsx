@@ -55,6 +55,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { label: "Usuarios", href: "/admin/users" },
       { label: "Roles & Permisos", href: "/admin/seguridad/roles" },
+      { label: "Bitacora", href: "/admin/seguridad/bitacora" },
     ],
   },
   {

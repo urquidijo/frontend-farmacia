@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { mostrarConfirmacion, mostrarExito, mostrarError } from "@/lib/alerts";
+import { logOk, logFail } from "@/lib/bitacora";
 type Role = { id: number; name: string; description?: string | null };
 type UserRow = {
   id: number;
@@ -48,6 +49,8 @@ export default function AdminUsers() {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState<UserRow | null>(null);
   const [error, setError] = useState<string>("");
+  const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+  const ip = localStorage.getItem("auth.ip") ?? null;
 
   const can = (p: string) => Boolean(me?.permissions?.includes(p));
 
@@ -79,15 +82,18 @@ export default function AdminUsers() {
   // Crear
   async function onCreate(data: CreateForm) {
     setError("");
-    const r = await fetch("/api/users", {
+    const r = await fetch("/api/users/internal", {
       method: "POST",
       credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(data),
     });
     if (!r.ok) {
+      await logOk("Crear User", { userId, ip });
       setError(await r.text());
       return;
+    }else{
+      await logFail("Crear User", { userId, ip });
     }
     setOpenCreate(false);
     await refreshUsers();

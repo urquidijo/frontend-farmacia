@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Lock, Heart, ShieldCheck } from "lucide-react";
+import { logOk, logFail } from "@/lib/bitacora";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr("");
@@ -20,12 +22,28 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (res.ok) {
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data) {
+        // 1) guardar en localStorage
+        localStorage.setItem("auth.userId", String(data.user?.id));
+        localStorage.setItem("auth.email", String(data.user?.email ?? ""));
+        localStorage.setItem("auth.ip", String(data.ip ?? ""));
+
+        // 2) registrar bitácora (EXITOSO)
+         await logOk("LOGIN", { userId: data.user?.id ?? null, ip: data.ip ?? null });
+
+        // 3) avisar y redirigir
         window.dispatchEvent(new Event("auth:changed"));
         location.assign("/");
       } else {
-        const text = await res.text();
-        setErr(text || "Credenciales inválidas.");
+        const ip = data?.ip ?? null;
+
+        // Registrar bitácora (FALLIDO) con el ip que el backend incluyó
+        await logFail("LOGIN", { userId: null, ip });
+
+        setErr(data?.message || "Credenciales inválidas.");
       }
     } catch {
       setErr("Error de red. Intenta de nuevo.");
