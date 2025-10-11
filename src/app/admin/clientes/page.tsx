@@ -1,18 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, User } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, User, Printer } from 'lucide-react'
+
 import Swal from 'sweetalert2'
+import { jsPDF } from 'jspdf'
 
 interface Cliente {
   id: number
-  nombre: string
-  apellido?: string
-  nit?: string
+  firstName: string
+  lastName?: string
+  email: string
   telefono?: string
-  email?: string
-  direccion?: string
-  activo: boolean
+  status: 'ACTIVE' | 'INACTIVE'
   createdAt: string
   updatedAt: string
 }
@@ -20,41 +20,385 @@ interface Cliente {
 export default function ClientesAdmin() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
   const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
-    nit: '',
-    telefono: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    direccion: '',
-    activo: true,
+    telefono: '',
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   })
+
+  const [fechaInicio, setFechaInicio] = useState('')
+  const [fechaFin, setFechaFin] = useState('')
+  const [showReportActions, setShowReportActions] = useState(false)
+
+  // Utilidades para reporte
+  const formatDate = (iso: string) => {
+    try {
+      const d = new Date(iso)
+      return new Intl.DateTimeFormat('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(d)
+    } catch {
+      return iso
+    }
+  }
+
+  const formatLongDate = (isoOrNow?: string) => {
+    const d = isoOrNow ? new Date(isoOrNow) : new Date()
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(d)
+  }
+
+  const calcMonthsBetween = (start: Date, end: Date) => {
+    const years = end.getFullYear() - start.getFullYear()
+    const months = end.getMonth() - start.getMonth()
+    const total = years * 12 + months + 1
+    return Math.max(1, total)
+  }
+
+  const buildReportHTML = (items: Cliente[]) => {
+    const now = new Date()
+    const periodoStr = fechaInicio && fechaFin
+      ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+      : 'Todos los registros'
+    const generadoStr = formatLongDate()
+
+    // Estadísticas
+    const total = items.length
+    const activos = items.filter(i => i.status === 'ACTIVE').length
+    const pctActivos = total > 0 ? Math.round((activos / total) * 100) : 0
+
+    // Promedio mensual
+    let months = 1
+    if (fechaInicio && fechaFin) {
+      months = calcMonthsBetween(new Date(fechaInicio), new Date(fechaFin))
+    } else if (items.length > 0) {
+      const dates = items.map(i => new Date(i.createdAt)).sort((a, b) => +a - +b)
+      months = calcMonthsBetween(dates[0], dates[dates.length - 1])
+    }
+    const promedio = total > 0 ? (total / months) : 0
+
+    const rows = items.map((c, idx) => `
+      <tr>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${idx + 1}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.firstName} ${c.lastName ?? ''}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.email}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.telefono || '-'}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${formatDate(c.createdAt)}</td>
+      </tr>
+    `).join('')
+
+    const css = `
+      * { box-sizing: border-box; }
+      body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+      /* A4 portrait visuals */
+      .report { width: 210mm; min-height: 297mm; margin: 0 auto; border: 2px solid #333; padding: 16px; display: flex; flex-direction: column; }
+      .report-content { flex: 1 1 auto; }
+      .report-footer { flex: 0 0 auto; text-align: center; margin-top: auto; padding-top: 8mm; border-top: none; }
+      .title { text-align:center; font-weight: bold; font-size: 18px; margin-top: 8px; }
+      .subtitle { text-align:center; font-size: 14px; margin-bottom: 8px; }
+      .section { border-top: 1px solid #333; margin-top: 12px; padding-top: 12px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; border-bottom: 2px solid #333; padding: 6px 8px; font-size: 12px; }
+      td { font-size: 12px; padding: 4px 8px; border-bottom: 1px solid #ccc; }
+      .muted { color: #333; font-size: 12px; }
+      .center { text-align:center; }
+      .stats li { margin: 4px 0; }
+      .signature-line { width: 60%; margin: 16px auto 0; border-top: 1px solid #333; padding-top: 8px; }
+    `
+
+    const html = `<!DOCTYPE html>
+    <html lang="es">
+      <head>
+        <meta charset="utf-8" />
+        <title>Reporte de Clientes</title>
+        <style>${css}</style>
+      </head>
+      <body>
+        <div class="report">
+          <div class="report-content">
+            <div class="title">REPORTE DE CLIENTES</div>
+            <div class="subtitle">Farmacia</div>
+
+            <div class="section">
+              <div class="muted">PERÍODO: ${periodoStr}</div>
+              <div class="muted">FECHA DE GENERACIÓN: ${generadoStr}</div>
+            </div>
+
+            <div class="section">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>NOMBRE COMPLETO</th>
+                    <th>CORREO</th>
+                    <th>TELÉFONO</th>
+                    <th>ESTADO</th>
+                    <th>FECHA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section center">
+              <div style="font-weight:bold;">RESUMEN ESTADÍSTICO</div>
+              <ul class="stats" style="list-style: disc; display:inline-block; text-align:left;">
+                <li>Total clientes: ${total}</li>
+                <li>Total clientes activos: ${activos} (${pctActivos}%)</li>
+                <li>Promedio de registros por mes: ${promedio.toFixed(1)}</li>
+                <li>Período analizado: ${months} ${months === 1 ? 'mes' : 'meses'}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="report-footer">
+            <div class="signature-line">Responsable del Reporte</div>
+          </div>
+        </div>
+      </body>
+    </html>`
+
+    return html
+  }
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadHTML = (html: string) => {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    triggerDownload(blob, 'reporte-clientes.html')
+  }
+
+  const downloadExcel = (html: string) => {
+    const match = html.match(/<table[\s\S]*?<\/table>/i)
+    const tableHtml = match ? match[0] : ''
+    const xlsHtml = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body>${tableHtml}</body></html>`
+    const blob = new Blob([xlsHtml], { type: 'application/vnd.ms-excel' })
+    triggerDownload(blob, 'reporte-clientes.xls')
+  }
+
+  const downloadPDF = async (items: Cliente[]) => {
+    Swal.fire({ title: 'Generando PDF...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } })
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const pageW = doc.internal.pageSize.getWidth()
+      const pageH = doc.internal.pageSize.getHeight()
+      const margin = 15
+      const innerW = pageW - margin * 2
+
+      const periodoStr = fechaInicio && fechaFin
+        ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+        : 'Todos los registros'
+      const generadoStr = formatLongDate()
+
+      // Borde exterior
+      doc.setDrawColor(60)
+      doc.setLineWidth(0.4)
+      doc.rect(5, 5, pageW - 10, pageH - 10)
+
+      let y = margin
+
+      // Título
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.text('REPORTE DE CLIENTES', pageW / 2, y, { align: 'center' })
+      y += 6
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(11)
+      doc.text('Farmacia', pageW / 2, y, { align: 'center' })
+      y += 6
+      // Separador
+      doc.line(margin, y, pageW - margin, y)
+      y += 6
+
+      // Info
+      doc.setFontSize(10)
+      doc.text(`PERÍODO: ${periodoStr}`, margin, y)
+      y += 5
+      doc.text(`FECHA DE GENERACIÓN: ${generadoStr}`, margin, y)
+      y += 8
+
+      // Cabecera tabla
+      const headers = ['#', 'NOMBRE COMPLETO', 'CORREO', 'TELÉFONO', 'ESTADO', 'FECHA']
+      const widths = [8, 48, 48, 30, 20, 26] // total 180 aprox
+      const startX = margin
+      const rowH = 7
+
+      const drawTableHeader = () => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9.5)
+        let x = startX
+        headers.forEach((h, i) => {
+          doc.text(h, x + 1, y)
+          x += widths[i]
+        })
+        // línea bajo header
+        doc.setLineWidth(0.5)
+        doc.line(margin, y + 2, pageW - margin, y + 2)
+        y += 6
+      }
+
+      const addPageIfNeeded = () => {
+        if (y + rowH > pageH - margin - 25) { // dejar espacio para firma
+          doc.addPage()
+          // marco
+          doc.setDrawColor(60)
+          doc.setLineWidth(0.4)
+          doc.rect(5, 5, pageW - 10, pageH - 10)
+          y = margin
+          drawTableHeader()
+        }
+      }
+
+      drawTableHeader()
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9.5)
+      items.forEach((c, idx) => {
+        addPageIfNeeded()
+        let x = startX
+        const cells = [
+          String(idx + 1),
+          `${c.firstName} ${c.lastName ?? ''}`.trim(),
+          c.email,
+          c.telefono || '-',
+          c.status === 'ACTIVE' ? 'Activo' : 'Inactivo',
+          formatDate(c.createdAt),
+        ]
+        cells.forEach((t, i) => {
+          doc.text(String(t), x + 1, y)
+          x += widths[i]
+        })
+        // línea separadora
+        doc.setDrawColor(200)
+        doc.setLineWidth(0.2)
+        doc.line(margin, y + 2.5, pageW - margin, y + 2.5)
+        doc.setDrawColor(60)
+        y += rowH
+      })
+
+      // Resumen estadístico
+      const total = items.length
+      const activos = items.filter(i => i.status === 'ACTIVE').length
+      const pctActivos = total > 0 ? Math.round((activos / total) * 100) : 0
+      let months = 1
+      if (fechaInicio && fechaFin) {
+        months = calcMonthsBetween(new Date(fechaInicio), new Date(fechaFin))
+      } else if (items.length > 0) {
+        const dates = items.map(i => new Date(i.createdAt)).sort((a, b) => +a - +b)
+        months = calcMonthsBetween(dates[0], dates[dates.length - 1])
+      }
+      const promedio = total > 0 ? (total / months) : 0
+
+      addPageIfNeeded()
+      // separador
+      doc.setLineWidth(0.5)
+      doc.line(margin, y, pageW - margin, y)
+      y += 7
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('RESUMEN ESTADÍSTICO', pageW / 2, y, { align: 'center' })
+      y += 7
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      const statLines = [
+        `• Total clientes: ${total}`,
+        `• Total clientes activos: ${activos} (${pctActivos}%)`,
+        `• Promedio de registros por mes: ${promedio.toFixed(1)}`,
+        `• Período analizado: ${months} ${months === 1 ? 'mes' : 'meses'}`,
+      ]
+      statLines.forEach(s => {
+        addPageIfNeeded()
+        doc.text(s, margin, y)
+        y += 6
+      })
+
+      // Firma al pie de la última página
+      const sigY = pageH - margin - 15
+      doc.setLineWidth(0.6)
+      doc.setDrawColor(60)
+      const lineW = innerW * 0.6
+      const x1 = (pageW - lineW) / 2
+      doc.line(x1, sigY, x1 + lineW, sigY)
+      doc.setFontSize(10)
+      doc.text('Responsable del Reporte', pageW / 2, sigY + 6, { align: 'center' })
+
+      doc.save('reporte-clientes.pdf')
+      await Swal.close()
+    } catch (err) {
+      console.error('Error generando PDF directo:', err)
+      await Swal.close()
+      Swal.fire({ title: 'Error', text: 'No se pudo generar el PDF.', icon: 'error' })
+    }
+  }
 
   useEffect(() => {
     fetchClientes()
-  }, [page, searchTerm])
+  }, [page])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setPage(1)
+      fetchClientes()
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [fechaInicio, fechaFin])
 
   const fetchClientes = async () => {
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: '10',
-      })
-      if (searchTerm) params.append('q', searchTerm)
+      let url = '/api/users/clientes'
+      
+      if (fechaInicio && fechaFin) {
+        const params = new URLSearchParams({
+          fechaInicial: fechaInicio,
+          fechaFinal: fechaFin,
+        })
+        url = `/api/users/clientes/by-date-range?${params}`
+      } else {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          size: '10',
+        })
+        url = `/api/users/clientes?${params}`
+      }
 
-      const response = await fetch(`/api/clientes?${params}`, {
+      const response = await fetch(url, {
         credentials: 'include',
       })
+      
       if (response.ok) {
         const data = await response.json()
-        setClientes(data.clientes)
-        setTotalPages(data.totalPages)
+        
+        if (fechaInicio && fechaFin) {
+          setClientes(data.clientes || [])
+          setTotalPages(1)
+        } else {
+          setClientes(data.users || data)
+          setTotalPages(data.totalPages || 1)
+        }
       }
     } catch (error) {
       console.error('Error fetching clientes:', error)
@@ -67,17 +411,15 @@ export default function ClientesAdmin() {
     e.preventDefault()
 
     try {
-      const clienteData = {
-        nombre: formData.nombre,
-        apellido: formData.apellido || null,
-        nit: formData.nit || null,
+      const userData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName || null,
+        email: formData.email,
         telefono: formData.telefono || null,
-        email: formData.email || null,
-        direccion: formData.direccion || null,
-        activo: formData.activo,
+        status: formData.status,
       }
 
-      const url = editingCliente ? `/api/clientes/${editingCliente.id}` : '/api/clientes'
+      const url = editingCliente ? `/api/users/${editingCliente.id}` : '/api/users/internal'
       const method = editingCliente ? 'PATCH' : 'POST'
 
       const response = await fetch(url, {
@@ -86,7 +428,7 @@ export default function ClientesAdmin() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(clienteData),
+        body: JSON.stringify(userData),
       })
 
       if (response.ok) {
@@ -115,13 +457,11 @@ export default function ClientesAdmin() {
   const handleEdit = (cliente: Cliente) => {
     setEditingCliente(cliente)
     setFormData({
-      nombre: cliente.nombre,
-      apellido: cliente.apellido || '',
-      nit: cliente.nit || '',
+      firstName: cliente.firstName,
+      lastName: cliente.lastName || '',
+      email: cliente.email,
       telefono: cliente.telefono || '',
-      email: cliente.email || '',
-      direccion: cliente.direccion || '',
-      activo: cliente.activo,
+      status: cliente.status,
     })
     setShowModal(true)
   }
@@ -140,7 +480,7 @@ export default function ClientesAdmin() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`/api/clientes/${id}`, {
+        const response = await fetch(`/api/users/${id}`, {
           method: 'DELETE',
           credentials: 'include',
         })
@@ -158,46 +498,112 @@ export default function ClientesAdmin() {
     }
   }
 
-  const resetForm = () => {
-    setFormData({
-      nombre: '',
-      apellido: '',
-      nit: '',
-      telefono: '',
-      email: '',
-      direccion: '',
-      activo: true,
-    })
-    setEditingCliente(null)
+  const handleGenerarReporte = async () => {
+    if ((fechaInicio && !fechaFin) || (!fechaInicio && fechaFin)) {
+      Swal.fire({
+        title: 'Atención',
+        text: 'Por favor selecciona ambas fechas para filtrar por rango',
+        icon: 'warning',
+      })
+      return
+    }
+
+    setShowReportActions(true)
   }
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64">Cargando...</div>
+  const resetForm = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      telefono: '',
+      status: 'ACTIVE',
+    })
+    setEditingCliente(null)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Gestión de Clientes</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700"
-        >
-          <Plus size={20} />
-          Nuevo Cliente
-        </button>
       </div>
 
-      {/* Búsqueda */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-        <input
-          type="text"
-          placeholder="Buscar clientes por nombre, NIT, teléfono..."
-          className="w-full pl-10 pr-4 py-2 border rounded-lg"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* Filtros de fecha y reporte */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
+            <input
+              type="date"
+              className="w-full border rounded-md px-3 py-2"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Fin</label>
+            <input
+              type="date"
+              className="w-full border rounded-md px-3 py-2"
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+            />
+          </div>
+          <div className="flex-shrink-0">
+            <button
+              onClick={handleGenerarReporte}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
+            >
+              <Printer size={20} />
+              Generar Reporte
+            </button>
+          </div>
+          <div className="flex-shrink-0">
+            <button
+              onClick={() => {
+                setFechaInicio('')
+                setFechaFin('')
+                setPage(1)
+                setShowReportActions(false)
+              }}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+            >
+              Limpiar Filtros
+            </button>
+          </div>
+        </div>
+
+        {showReportActions && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-600 mr-2">Descargar como:</span>
+            <button
+              onClick={async () => {
+                await downloadPDF(clientes)
+              }}
+              className="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm"
+            >
+              PDF
+            </button>
+            <button
+              onClick={() => {
+                const html = buildReportHTML(clientes)
+                downloadExcel(html)
+              }}
+              className="px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 text-sm"
+            >
+              Excel
+            </button>
+            <button
+              onClick={() => {
+                const html = buildReportHTML(clientes)
+                downloadHTML(html)
+              }}
+              className="px-3 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 text-sm"
+            >
+              HTML
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabla de clientes */}
@@ -206,16 +612,13 @@ export default function ClientesAdmin() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
+                Nombre
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                NIT
+                Correo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Teléfono
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
@@ -235,32 +638,26 @@ export default function ClientesAdmin() {
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">
-                        {cliente.nombre} {cliente.apellido}
+                        {cliente.firstName} {cliente.lastName}
                       </div>
-                      {cliente.direccion && (
-                        <div className="text-sm text-gray-500">{cliente.direccion}</div>
-                      )}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {cliente.nit || '-'}
+                  {cliente.email}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {cliente.telefono || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {cliente.email || '-'}
-                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      cliente.activo
+                      cliente.status === 'ACTIVE'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                     }`}
                   >
-                    {cliente.activo ? 'Activo' : 'Inactivo'}
+                    {cliente.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -310,9 +707,7 @@ export default function ClientesAdmin() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
-            </h2>
+            <h2 className="text-xl font-semibold mb-4">Editar Cliente</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Nombre *</label>
@@ -320,8 +715,8 @@ export default function ClientesAdmin() {
                   type="text"
                   required
                   className="mt-1 block w-full border rounded-md px-3 py-2"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+                  value={formData.firstName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                 />
               </div>
 
@@ -330,18 +725,19 @@ export default function ClientesAdmin() {
                 <input
                   type="text"
                   className="mt-1 block w-full border rounded-md px-3 py-2"
-                  value={formData.apellido}
-                  onChange={(e) => setFormData(prev => ({ ...prev, apellido: e.target.value }))}
+                  value={formData.lastName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">NIT</label>
+                <label className="block text-sm font-medium text-gray-700">Correo *</label>
                 <input
-                  type="text"
+                  type="email"
+                  required
                   className="mt-1 block w-full border rounded-md px-3 py-2"
-                  value={formData.nit}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nit: e.target.value }))}
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 />
               </div>
 
@@ -356,34 +752,14 @@ export default function ClientesAdmin() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  className="mt-1 block w-full border rounded-md px-3 py-2"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Dirección</label>
-                <textarea
-                  className="mt-1 block w-full border rounded-md px-3 py-2"
-                  rows={2}
-                  value={formData.direccion}
-                  onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700">Estado</label>
                 <select
                   className="mt-1 block w-full border rounded-md px-3 py-2"
-                  value={formData.activo.toString()}
-                  onChange={(e) => setFormData(prev => ({ ...prev, activo: e.target.value === 'true' }))}
+                  value={formData.status}
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))}
                 >
-                  <option value="true">Activo</option>
-                  <option value="false">Inactivo</option>
+                  <option value="ACTIVE">Activo</option>
+                  <option value="INACTIVE">Inactivo</option>
                 </select>
               </div>
 
@@ -402,7 +778,7 @@ export default function ClientesAdmin() {
                   type="submit"
                   className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
                 >
-                  {editingCliente ? 'Actualizar' : 'Crear'}
+                  Actualizar
                 </button>
               </div>
             </form>
