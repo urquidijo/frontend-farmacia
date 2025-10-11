@@ -1,21 +1,18 @@
-// app/api/roles/route.ts
+// app/api/roles/[id]/permissions/route.ts
 import type { NextRequest } from 'next/server';
 const api = process.env.NEXT_PUBLIC_API_URL;
 
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const withPerms = url.searchParams.get('withPerms') ?? 'false';
-  const r = await fetch(`${api}/roles?withPerms=${withPerms}`, {
-    headers: { cookie: req.headers.get('cookie') ?? '' },
+export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  const r = await fetch(`${api}/roles/${params.id}/permissions`, {
     credentials: 'include',
     cache: 'no-store',
   });
   return new Response(await r.text(), { status: r.status, headers: { 'content-type': r.headers.get('content-type') ?? 'application/json' } });
 }
 
-export async function POST(req: NextRequest) {
-  const r = await fetch(`${api}/roles`, {
-    method: 'POST',
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const r = await fetch(`${api}/roles/${params.id}/permissions`, {
+    method: 'PUT',
     headers: {
       'content-type': 'application/json',
       cookie: req.headers.get('cookie') ?? '',
