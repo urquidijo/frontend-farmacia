@@ -2,11 +2,16 @@ import type { NextRequest } from "next/server"
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const res = await fetch(`${apiBase}/lotes/${params.id}`, {
+type Params = { id: string }
+type Context = { params: Params } | { params: Promise<Params> }
+
+const resolveParams = async (context: Context): Promise<Params> =>
+  context.params instanceof Promise ? await context.params : context.params
+
+export async function PATCH(req: NextRequest, context: Context) {
+  const { id } = await resolveParams(context)
+
+  const res = await fetch(`${apiBase}/lotes/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: {
@@ -24,11 +29,10 @@ export async function PATCH(
   })
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const res = await fetch(`${apiBase}/lotes/${params.id}`, {
+export async function DELETE(req: NextRequest, context: Context) {
+  const { id } = await resolveParams(context)
+
+  const res = await fetch(`${apiBase}/lotes/${id}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: {
