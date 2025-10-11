@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
 import AdminSidebar from "@/components/AdminSidebar";
 
 type Me = {
@@ -12,17 +14,41 @@ type Me = {
   permissions: string[];
 };
 
+type AlertSummaryItem = {
+  id: number;
+  type: "STOCK_BAJO" | "VENCIMIENTO";
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  mensaje: string;
+  venceEnDias?: number | null;
+  producto: {
+    id: number;
+    nombre: string;
+  };
+};
+
+type AlertsOverview = {
+  unread: number;
+  top: AlertSummaryItem[];
+};
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [openMobile, setOpenMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [alertsOverview, setAlertsOverview] = useState<AlertsOverview | null>(null);
+  const [alertToastShown, setAlertToastShown] = useState(false);
 
   const can = (p: string) => Boolean(me?.permissions?.includes(p));
+  const canAlertRead = useMemo(
+    () => me?.permissions?.includes("alert.read") ?? false,
+    [me],
+  );
 
   const fetchMe = useCallback(async () => {
     try {
@@ -36,12 +62,83 @@ export default function AdminLayout({
     }
   }, []);
 
+  const fetchAlertsOverview = useCallback(async () => {
+    if (!canAlertRead) return;
+    try {
+      const res = await fetch("/api/alerts?unreadOnly=true&pageSize=5", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const items = Array.isArray(json?.data) ? (json.data as AlertSummaryItem[]) : [];
+      setAlertsOverview({
+        unread: json?.meta?.unread ?? items.length,
+        top: items,
+      });
+      const critical = items.filter(item => item.severity === "CRITICAL");
+      if (!alertToastShown && critical.length) {
+        setAlertToastShown(true);
+        const listHtml = critical
+          .slice(0, 3)
+          .map(
+            item =>
+              `<li style="text-align:left;margin-bottom:4px;"><strong>${item.producto.nombre}</strong> &mdash; ${
+                item.type === "STOCK_BAJO" ? "Stock critico" : "Vencimiento inminente"
+              }</li>`,
+          )
+          .join("");
+        void Swal.fire({
+          icon: "warning",
+          title: "Alertas criticas",
+          html: `<ul style="margin:0;padding-left:18px;">${listHtml}</ul>`,
+          confirmButtonText: "Ver todas",
+          showCancelButton: true,
+          cancelButtonText: "Cerrar",
+        }).then(result => {
+          if (result.isConfirmed) {
+            router.push("/admin/alerts");
+          }
+        });
+      }
+    } catch (error) {
+      console.error("No se pudo cargar el resumen de alertas", error);
+    }
+  }, [alertToastShown, canAlertRead, router]);
+
   useEffect(() => {
     fetchMe();
     const onAuth = () => fetchMe();
     window.addEventListener("auth:changed", onAuth);
     return () => window.removeEventListener("auth:changed", onAuth);
   }, [fetchMe]);
+
+  useEffect(() => {
+    fetchAlertsOverview();
+  }, [fetchAlertsOverview]);
+
+  useEffect(() => {
+    if (!canAlertRead) return;
+    const base = process.env.NEXT_PUBLIC_API_URL ?? "";
+    if (!base) return;
+    const sanitizedBase = base.replace(/\/$/, "");
+    const streamUrl = `${sanitizedBase}/alerts/stream`;
+    let source: EventSource | null = null;
+    try {
+      source = new EventSource(streamUrl, { withCredentials: true });
+      source.onmessage = () => {
+        fetchAlertsOverview();
+      };
+      source.onerror = () => {
+        source?.close();
+      };
+    } catch (error) {
+      console.error("No se pudo abrir el stream de alertas", error);
+    }
+    return () => {
+      source?.close();
+    };
+  }, [canAlertRead, fetchAlertsOverview]);
 
   const initials = useMemo(() => {
     if (!me) return "??";
@@ -75,7 +172,7 @@ export default function AdminLayout({
           <button
             className="md:hidden p-2 rounded hover:bg-zinc-100"
             onClick={() => setOpenMobile((v) => !v)}
-            aria-label="Abrir menú"
+            aria-label="Abrir menu"
             aria-expanded={openMobile}
             aria-controls="mobile-sidebar"
           >
@@ -110,61 +207,88 @@ export default function AdminLayout({
             </svg>
             <input
               className="w-full outline-none placeholder:text-zinc-400"
-              placeholder="Buscar (usuarios, pedidos, productos…)"
+              placeholder="Buscar (usuarios, pedidos, productos...)"
             />
           </div>
 
-          {/* Perfil */}
-          <div className="ml-auto relative">
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 rounded-full hover:bg-zinc-100 px-2 py-1"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-            >
-              <div className="h-8 w-8 rounded-full bg-emerald-600 text-white grid place-items-center text-sm font-semibold">
-                {initials}
-              </div>
-              <span className="hidden sm:block text-sm text-zinc-700 max-w-[180px] truncate">
-                {me?.firstName} {me?.lastName}
-              </span>
-              <svg
-                className="h-4 w-4 text-zinc-500"
-                viewBox="0 0 20 20"
-                fill="currentColor"
+          <div className="ml-auto flex items-center gap-3">
+            {canAlertRead && (
+              <button
+                onClick={() => router.push("/admin/alerts")}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                aria-label="Ver alertas"
               >
-                <path d="M5 7l5 5 5-5" />
-              </svg>
-            </button>
-
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 mt-2 w-48 rounded-xl border bg-white shadow-xl ring-1 ring-black/5 py-1 text-sm z-50"
-              >
-                <Link
-                  href="/"
-                  className="block px-3 py-2 hover:bg-zinc-50"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Ver sitio
-                </Link>
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-zinc-50 text-rose-600"
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    await fetch("/api/auth/logout", {
-                      method: "POST",
-                      credentials: "include",
-                    });
-                    window.dispatchEvent(new Event("auth:changed"));
-                    location.assign("/");
-                  }}
-                >
-                  Cerrar sesión
-                </button>
-              </div>
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 6a4 4 0 0 1 4 4v1.5c0 .6.2 1.2.6 1.7l1.2 1.6c.8 1.1.1 2.7-1.3 2.7H7.5c-1.4 0-2.1-1.6-1.3-2.7l1.2-1.6c.4-.5.6-1.1.6-1.7V10a4 4 0 0 1 4-4Z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M10 19a2 2 0 1 0 4 0"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                </svg>
+                {alertsOverview?.unread ? (
+                  <span className="absolute -top-1 -right-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                    {Math.min(alertsOverview.unread, 99)}
+                  </span>
+                ) : null}
+              </button>
             )}
+
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-zinc-100"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <div className="h-8 w-8 rounded-full bg-emerald-600 text-white grid place-items-center text-sm font-semibold">
+                  {initials}
+                </div>
+                <span className="hidden sm:block max-w-[180px] truncate text-sm text-zinc-700">
+                  {me?.firstName} {me?.lastName}
+                </span>
+                <svg
+                  className="h-4 w-4 text-zinc-500"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path d="M5 7l5 5 5-5" />
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-48 rounded-xl border bg-white py-1 text-sm shadow-xl ring-1 ring-black/5 z-50"
+                >
+                  <Link
+                    href="/"
+                    className="block px-3 py-2 hover:bg-zinc-50"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Ver sitio
+                  </Link>
+                  <button
+                    className="w-full px-3 py-2 text-left text-rose-600 hover:bg-zinc-50"
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await fetch("/api/auth/logout", {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                      window.dispatchEvent(new Event("auth:changed"));
+                      location.assign("/");
+                    }}
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
