@@ -89,12 +89,11 @@ export default function AdminUsers() {
       body: JSON.stringify(data),
     });
     if (!r.ok) {
-      await logOk("Crear User", { userId, ip });
+      await logFail("Crear User", { userId, ip });
       setError(await r.text());
       return;
-    }else{
-      await logFail("Crear User", { userId, ip });
     }
+    await logOk("Crear User", { userId, ip });
     setOpenCreate(false);
     await refreshUsers();
   }
