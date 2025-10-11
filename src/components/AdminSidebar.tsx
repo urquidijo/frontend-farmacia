@@ -45,6 +45,7 @@ const SECTIONS: NavSection[] = [
     icon: <IconBox />,
     items: [
       { label: "Productos", href: "/admin/inventario/productos" },
+      { label: "Alertas", href: "/admin/alerts" },
       { label: "Proveedores", href: "/admin/inventario/proveedores" },
     ],
   },
