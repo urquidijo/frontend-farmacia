@@ -21,7 +21,6 @@ export default function NavBar() {
       const user = r.ok ? ((await r.json()) as Me) : null
       setMe(user)
 
-      // Si está autenticado, obtener el carrito
       if (user) {
         fetchCarritoCount()
       } else {
@@ -49,7 +48,6 @@ export default function NavBar() {
   useEffect(() => {
     fetchMe()
 
-    // Solo escuchar cambios importantes, no focus/visibility
     const onAuthChanged = () => { void fetchMe() }
     const onCarritoChanged = () => { void fetchCarritoCount() }
 
@@ -68,18 +66,19 @@ export default function NavBar() {
   const links = [
     { href: '/productos', label: 'Productos' },
     { href: '/facturas', label: 'Mis Facturas' },
-
   ]
 
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="h-14 flex items-center gap-6">
+      {/* contenedor más fluido en móviles, mismo ancho en desktop */}
+      <div className="max-w-6xl mx-auto px-3 sm:px-4">
+        <div className="h-14 flex items-center gap-3 sm:gap-6">
           {/* Mobile toggle */}
           <button
             className="md:hidden p-2 -ml-2 rounded hover:bg-zinc-100"
             onClick={() => setMobileOpen(v => !v)}
             aria-label="Abrir menú"
+            aria-expanded={mobileOpen}
           >
             <svg width="22" height="22" viewBox="0 0 24 24">
               <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" />
@@ -92,7 +91,7 @@ export default function NavBar() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-sm font-medium">
             {links.map(link => {
               const isActive = pathname === link.href
               return (
@@ -100,7 +99,7 @@ export default function NavBar() {
                   key={link.href}
                   href={link.href}
                   className={`
-                    relative transition-colors
+                    relative px-1 py-2 transition-colors
                     ${isActive
                       ? 'text-emerald-700 font-semibold'
                       : 'text-zinc-700 hover:text-emerald-600'}
@@ -108,7 +107,7 @@ export default function NavBar() {
                 >
                   {link.label}
                   {isActive && (
-                    <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-emerald-700 rounded"></span>
+                    <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-emerald-700 rounded" />
                   )}
                 </Link>
               )
@@ -116,7 +115,7 @@ export default function NavBar() {
             {me && can('user.read') && (
               <Link
                 href="/admin"
-                className={`ml-2 relative ${
+                className={`ml-1 relative px-1 py-2 ${
                   pathname.startsWith('/admin')
                     ? 'text-emerald-700 font-semibold'
                     : 'text-zinc-700 hover:text-emerald-600'
@@ -128,17 +127,18 @@ export default function NavBar() {
           </nav>
 
           {/* Right side */}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {/* Botón carrito */}
             {me && (
               <Link
                 href="/carrito"
                 className="relative p-2 hover:bg-gray-100 rounded-full transition"
                 title="Ver carrito"
+                aria-label={`Ver carrito${carritoCount ? `, ${carritoCount} productos` : ''}`}
               >
                 <ShoppingCart size={22} className="text-gray-700" />
                 {carritoCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[10px] font-bold rounded-full min-h-[20px] min-w-[20px] px-1 flex items-center justify-center">
                     {carritoCount}
                   </span>
                 )}
@@ -150,8 +150,8 @@ export default function NavBar() {
             ) : me ? (
               <UserMenu me={me} />
             ) : (
-              <div className="flex items-center gap-3 text-sm">
-                <Link href="/login" className="hover:text-emerald-700">
+              <div className="flex items-center gap-2 sm:gap-3 text-sm">
+                <Link href="/login" className="hover:text-emerald-700 px-2 py-1 rounded hover:bg-zinc-100">
                   Ingresar
                 </Link>
                 <Link
@@ -167,18 +167,18 @@ export default function NavBar() {
 
         {/* Mobile nav */}
         {mobileOpen && (
-          <div className="md:hidden pb-3 border-t text-sm">
-            <nav className="flex flex-col gap-2 pt-3">
+          <div className="md:hidden pb-3 border-t text-sm bg-white/95">
+            <nav className="flex flex-col gap-1 pt-3">
               {me && (
                 <Link
                   href="/carrito"
                   onClick={() => setMobileOpen(false)}
-                  className="px-2 py-1 rounded hover:bg-zinc-50 flex items-center gap-2"
+                  className="px-2 py-2 rounded hover:bg-zinc-50 flex items-center gap-2"
                 >
                   <ShoppingCart size={18} />
                   <span>Mi Carrito</span>
                   {carritoCount > 0 && (
-                    <span className="ml-auto bg-emerald-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="ml-auto bg-emerald-600 text-white text-[10px] font-bold rounded-full min-h-[20px] min-w-[20px] px-1 flex items-center justify-center">
                       {carritoCount}
                     </span>
                   )}
@@ -191,7 +191,7 @@ export default function NavBar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`px-2 py-1 rounded ${
+                    className={`px-2 py-2 rounded ${
                       isActive
                         ? 'bg-emerald-50 text-emerald-700 font-semibold'
                         : 'hover:bg-zinc-50'
@@ -205,7 +205,7 @@ export default function NavBar() {
                 <Link
                   href="/admin"
                   onClick={() => setMobileOpen(false)}
-                  className={`px-2 py-1 rounded ${
+                  className={`px-2 py-2 rounded ${
                     pathname.startsWith('/admin')
                       ? 'bg-emerald-50 text-emerald-700 font-semibold'
                       : 'hover:bg-zinc-50'
@@ -215,14 +215,14 @@ export default function NavBar() {
                 </Link>
               )}
               {!me && (
-                <>
-                  <Link href="/login" onClick={() => setMobileOpen(false)}>
+                <div className="grid grid-cols-2 gap-2 px-1">
+                  <Link href="/login" onClick={() => setMobileOpen(false)} className="text-center px-3 py-2 rounded border hover:bg-zinc-50">
                     Ingresar
                   </Link>
-                  <Link href="/register" onClick={() => setMobileOpen(false)}>
+                  <Link href="/register" onClick={() => setMobileOpen(false)} className="text-center px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">
                     Crear cuenta
                   </Link>
-                </>
+                </div>
               )}
             </nav>
           </div>
