@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Swal from 'sweetalert2'
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react'
+import { loadStripe } from '@stripe/stripe-js'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!)
 
 interface CarritoItem {
   id: number
@@ -29,10 +32,7 @@ export default function CarritoPage() {
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('/api/me', {
-        credentials: 'include',
-      })
-
+      const response = await fetch('/api/me', { credentials: 'include' })
       if (response.ok) {
         setIsAuthenticated(true)
         fetchCarrito()
@@ -72,12 +72,10 @@ export default function CarritoPage() {
   }
 
   const updateCantidad = async (itemId: number, newCantidad: number) => {
-    // Si la cantidad es 0 o menos, eliminar el item sin confirmación
     if (newCantidad < 1) {
       await removeItem(itemId, true)
       return
     }
-
     try {
       const response = await fetch(`/api/carrito/${itemId}`, {
         method: 'PATCH',
@@ -85,10 +83,8 @@ export default function CarritoPage() {
         credentials: 'include',
         body: JSON.stringify({ cantidad: newCantidad }),
       })
-
       if (response.ok) {
         fetchCarrito()
-        // Disparar evento para actualizar contador
         window.dispatchEvent(new Event('carrito:changed'))
       }
     } catch (error) {
@@ -108,22 +104,17 @@ export default function CarritoPage() {
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
       })
-
       if (!result.isConfirmed) return
     }
-
     try {
       const response = await fetch(`/api/carrito/${itemId}`, {
         method: 'DELETE',
         credentials: 'include',
       })
-
       if (response.ok) {
-        if (!skipConfirmation) {
+        if (!skipConfirmation)
           Swal.fire('Eliminado', 'Producto quitado del carrito', 'success')
-        }
         fetchCarrito()
-        // Disparar evento para actualizar contador
         window.dispatchEvent(new Event('carrito:changed'))
       }
     } catch (error) {
@@ -131,61 +122,74 @@ export default function CarritoPage() {
     }
   }
 
+  // ✅ FLUJO DE PAGO ACTUALIZADO: crea orden + genera pago
   const handleCheckout = async () => {
-    const result = await Swal.fire({
-      title: 'Procesar compra',
-      text: '¿Deseas finalizar tu compra?',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Sí, procesar',
-      cancelButtonText: 'Cancelar',
-    })
+  const result = await Swal.fire({
+    title: 'Procesar compra',
+    text: '¿Deseas finalizar tu compra?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Sí, procesar',
+    cancelButtonText: 'Cancelar',
+  })
 
-    if (result.isConfirmed) {
-      try {
-        const response = await fetch('/api/carrito/checkout', {
-          method: 'POST',
-          credentials: 'include',
-        })
+  if (result.isConfirmed) {
+    try {
+      // 🧾 1. Crear la orden desde el carrito (tu endpoint real)
+      const ordenResponse = await fetch('/api/carrito/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      })
 
-        if (response.ok) {
-          Swal.fire({
-            title: '¡Compra realizada!',
-            text: 'Tu orden ha sido registrada exitosamente',
-            icon: 'success',
-          })
-          setItems([])
-          // Disparar evento para actualizar contador
-          window.dispatchEvent(new Event('carrito:changed'))
-        } else {
-          throw new Error('Error al procesar')
-        }
-      } catch (error) {
-        console.error('Error en checkout:', error)
-        Swal.fire('Error', 'No se pudo procesar la compra', 'error')
+      if (!ordenResponse.ok) throw new Error('Error al crear la orden')
+      const nuevaOrden = await ordenResponse.json()
+
+      // 💳 2. Crear el pago con Stripe usando el ID de la orden
+      const pagoResponse = await fetch('/api/pagos/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ordenId: nuevaOrden.id,
+          monto: nuevaOrden.total,
+          moneda: 'usd',
+        }),
+      })
+
+      if (!pagoResponse.ok) throw new Error('Error al crear pago')
+      const data = await pagoResponse.json()
+
+      // 🔀 3. Redirigir al checkout de Stripe
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error('Stripe URL no recibida')
       }
+    } catch (error) {
+      console.error('Error en checkout:', error)
+      Swal.fire('Error', 'No se pudo procesar la compra', 'error')
     }
   }
+}
 
   const calcularTotal = () => {
-    return items.reduce((total, item) => {
-      return total + item.producto.precio * item.cantidad
-    }, 0)
+    return items.reduce(
+      (total, item) => total + item.producto.precio * item.cantidad,
+      0
+    )
   }
 
-  if (loading) {
+  if (loading)
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-lg">Cargando...</div>
       </div>
     )
-  }
 
-  if (!isAuthenticated) {
-    return null
-  }
+  if (!isAuthenticated) return null
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -212,14 +216,12 @@ export default function CarritoPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Lista de productos */}
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <div
                 key={item.id}
                 className="bg-white rounded-lg shadow-md p-4 flex gap-4"
               >
-                {/* Imagen */}
                 <div className="w-24 h-24 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                   {item.producto.imageUrl ? (
                     <img
@@ -234,7 +236,6 @@ export default function CarritoPage() {
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">
                     {item.producto.nombre}
@@ -247,7 +248,6 @@ export default function CarritoPage() {
                   </p>
                 </div>
 
-                {/* Controles */}
                 <div className="flex flex-col items-end justify-between">
                   <button
                     onClick={() => removeItem(item.id)}
@@ -258,9 +258,7 @@ export default function CarritoPage() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() =>
-                        updateCantidad(item.id, item.cantidad - 1)
-                      }
+                      onClick={() => updateCantidad(item.id, item.cantidad - 1)}
                       className="bg-gray-200 hover:bg-gray-300 rounded p-1"
                     >
                       <Minus size={16} />
@@ -269,9 +267,7 @@ export default function CarritoPage() {
                       {item.cantidad}
                     </span>
                     <button
-                      onClick={() =>
-                        updateCantidad(item.id, item.cantidad + 1)
-                      }
+                      onClick={() => updateCantidad(item.id, item.cantidad + 1)}
                       className="bg-gray-200 hover:bg-gray-300 rounded p-1"
                     >
                       <Plus size={16} />
@@ -286,7 +282,6 @@ export default function CarritoPage() {
             ))}
           </div>
 
-          {/* Resumen */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
               <h2 className="text-xl font-bold mb-4">Resumen de compra</h2>
