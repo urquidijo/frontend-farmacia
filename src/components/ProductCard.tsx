@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from 'react';
-import Swal from 'sweetalert2';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import Swal from "sweetalert2";
+import { useRouter } from "next/navigation";
+import { logOk } from "@/lib/bitacora";
 
 type Props = {
   productoId: number;
@@ -12,7 +13,13 @@ type Props = {
   marca?: string;
 };
 
-export default function ProductCard({ productoId, nombre, precio, imagen, marca }: Props) {
+export default function ProductCard({
+  productoId,
+  nombre,
+  precio,
+  imagen,
+  marca,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -21,45 +28,48 @@ export default function ProductCard({ productoId, nombre, precio, imagen, marca 
 
     try {
       // Verificar si está autenticado
-      const authResponse = await fetch('/api/me', { credentials: 'include' });
+      const authResponse = await fetch("/api/me", { credentials: "include" });
 
       if (!authResponse.ok) {
         Swal.fire({
-          title: 'Debes iniciar sesión',
-          text: 'Para agregar productos al carrito, inicia sesión',
-          icon: 'info',
-          confirmButtonText: 'Ir a login',
+          title: "Debes iniciar sesión",
+          text: "Para agregar productos al carrito, inicia sesión",
+          icon: "info",
+          confirmButtonText: "Ir a login",
         }).then(() => {
-          router.push('/login');
+          router.push("/login");
         });
         setLoading(false);
         return;
       }
 
       // Agregar al carrito
-      const response = await fetch('/api/carrito', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const response = await fetch("/api/carrito", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ productoId, cantidad: 1 }),
       });
 
       if (response.ok) {
+        const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+        const ip = localStorage.getItem("auth.ip") ?? null;
+        await logOk("Producto Agregado", { userId, ip });
         Swal.fire({
-          title: '¡Agregado!',
-          text: 'Producto agregado al carrito',
-          icon: 'success',
+          title: "¡Agregado!",
+          text: "Producto agregado al carrito",
+          icon: "success",
           timer: 1500,
           showConfirmButton: false,
         });
         // Disparar evento para actualizar contador del carrito
-        window.dispatchEvent(new Event('carrito:changed'));
+        window.dispatchEvent(new Event("carrito:changed"));
       } else {
-        throw new Error('Error al agregar');
+        throw new Error("Error al agregar");
       }
     } catch (error) {
-      console.error('Error:', error);
-      Swal.fire('Error', 'No se pudo agregar al carrito', 'error');
+      console.error("Error:", error);
+      Swal.fire("Error", "No se pudo agregar al carrito", "error");
     } finally {
       setLoading(false);
     }
@@ -99,7 +109,7 @@ export default function ProductCard({ productoId, nombre, precio, imagen, marca 
           onClick={addToCarrito}
           disabled={loading}
         >
-          {loading ? '⏳ Agregando...' : '🛒 Agregar'}
+          {loading ? "⏳ Agregando..." : "🛒 Agregar"}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
-'use client'
+"use client";
 
+<<<<<<< HEAD
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Swal from 'sweetalert2'
@@ -11,65 +12,100 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!)
 =======
 import { Trash2, Plus, Minus, ShoppingCart, Package, ShieldCheck, Truck } from 'lucide-react'
 >>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
+=======
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
+import {
+  Trash2,
+  Plus,
+  Minus,
+  ShoppingCart,
+  Package,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
+import { logOk } from "@/lib/bitacora";
+>>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
 
 interface CarritoItem {
-  id: number
-  cantidad: number
+  id: number;
+  cantidad: number;
   producto: {
-    id: number
-    nombre: string
-    precio: number
-    imageUrl?: string
-    marca: { nombre: string }
-    stockActual: number
-  }
+    id: number;
+    nombre: string;
+    precio: number;
+    imageUrl?: string;
+    marca: { nombre: string };
+    stockActual: number;
+  };
 }
 
 export default function CarritoPage() {
-  const [items, setItems] = useState<CarritoItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [coupon, setCoupon] = useState('')
-  const router = useRouter()
+  const [items, setItems] = useState<CarritoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const router = useRouter();
 
   // ---------- Helpers ----------
   const money = (n: number) =>
-    new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB', minimumFractionDigits: 2 }).format(n)
+    new Intl.NumberFormat("es-BO", {
+      style: "currency",
+      currency: "BOB",
+      minimumFractionDigits: 2,
+    }).format(n);
 
-  const subtotal = useMemo(() => items.reduce((t, it) => t + it.producto.precio * it.cantidad, 0), [items])
-  const envio = useMemo(() => (subtotal > 200 ? 0 : items.length ? 15 : 0), [subtotal, items.length])
-  const descuento = useMemo(() => (coupon.trim().toUpperCase() === 'UAGRM10' ? Math.min(subtotal * 0.1, 60) : 0), [coupon, subtotal])
-  const total = useMemo(() => Math.max(subtotal + envio - descuento, 0), [subtotal, envio, descuento])
+  const subtotal = useMemo(
+    () => items.reduce((t, it) => t + it.producto.precio * it.cantidad, 0),
+    [items]
+  );
+  const envio = useMemo(
+    () => (subtotal > 200 ? 0 : items.length ? 15 : 0),
+    [subtotal, items.length]
+  );
+  const descuento = useMemo(
+    () =>
+      coupon.trim().toUpperCase() === "UAGRM10"
+        ? Math.min(subtotal * 0.1, 60)
+        : 0,
+    [coupon, subtotal]
+  );
+  const total = useMemo(
+    () => Math.max(subtotal + envio - descuento, 0),
+    [subtotal, envio, descuento]
+  );
 
   // ---------- Effects ----------
   useEffect(() => {
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
   const parseErrorMessage = async (response: Response, fallback: string) => {
-    let message = fallback
+    let message = fallback;
     try {
-      const raw = await response.text()
+      const raw = await response.text();
       if (raw) {
         try {
-          const data = JSON.parse(raw)
+          const data = JSON.parse(raw);
           const candidate = Array.isArray(data?.message)
             ? data.message[0]
-            : data?.message
-          if (candidate) message = candidate
+            : data?.message;
+          if (candidate) message = candidate;
         } catch {
-          message = raw
+          message = raw;
         }
       }
     } catch {
       // ignore
     }
-    return message
-  }
+    return message;
+  };
 
   const checkAuth = async () => {
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
       const response = await fetch('/api/me', { credentials: 'include' })
       if (response.ok) {
@@ -79,38 +115,48 @@ export default function CarritoPage() {
 >>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
         setIsAuthenticated(true)
         await fetchCarrito()
+=======
+      const r = await fetch("/api/me", { credentials: "include" });
+      if (r.ok) {
+        setIsAuthenticated(true);
+        await fetchCarrito();
+>>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
       } else {
-        setIsAuthenticated(false)
-        setLoading(false)
+        setIsAuthenticated(false);
+        setLoading(false);
         Swal.fire({
-          title: 'Debes iniciar sesión',
-          text: 'Para ver tu carrito, inicia sesión',
-          icon: 'info',
-          confirmButtonText: 'Ir a login',
-        }).then(() => router.push('/login'))
+          title: "Debes iniciar sesión",
+          text: "Para ver tu carrito, inicia sesión",
+          icon: "info",
+          confirmButtonText: "Ir a login",
+        }).then(() => router.push("/login"));
       }
     } catch (e) {
-      console.error('Auth error:', e)
-      setLoading(false)
+      console.error("Auth error:", e);
+      setLoading(false);
     }
-  }
+  };
 
   const fetchCarrito = async () => {
     try {
-      const r = await fetch('/api/carrito', { credentials: 'include', cache: 'no-store' })
+      const r = await fetch("/api/carrito", {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (r.ok) {
-        const data = await r.json()
-        setItems(data as CarritoItem[])
+        const data = await r.json();
+        setItems(data as CarritoItem[]);
       }
     } catch (e) {
-      console.error('Fetch carrito error:', e)
+      console.error("Fetch carrito error:", e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // ---------- Mutations (optimistas con rollback) ----------
   const updateCantidad = async (itemId: number, newCantidad: number) => {
+<<<<<<< HEAD
 <<<<<<< HEAD
     if (newCantidad < 1) {
       await removeItem(itemId, true)
@@ -119,22 +165,27 @@ export default function CarritoPage() {
 =======
     const idx = items.findIndex((x) => x.id === itemId)
     if (idx === -1) return
+=======
+    const idx = items.findIndex((x) => x.id === itemId);
+    if (idx === -1) return;
+>>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
 
-    if (newCantidad < 1) return removeItem(itemId, true)
+    if (newCantidad < 1) return removeItem(itemId, true);
 
-    const prev = items[idx]
-    const snapshot = [...items]
-    const next = [...items]
-    next[idx] = { ...prev, cantidad: newCantidad }
-    setItems(next)
+    const prev = items[idx];
+    const snapshot = [...items];
+    const next = [...items];
+    next[idx] = { ...prev, cantidad: newCantidad };
+    setItems(next);
 
 >>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
     try {
       const r = await fetch(`/api/carrito/${itemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ cantidad: newCantidad }),
+<<<<<<< HEAD
       })
 <<<<<<< HEAD
       if (response.ok) {
@@ -148,46 +199,59 @@ export default function CarritoPage() {
         )
         throw new Error(message)
 >>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
+=======
+      });
+      if (!r.ok) {
+        const message = await parseErrorMessage(
+          r,
+          "No se pudo actualizar la cantidad"
+        );
+        throw new Error(message);
+>>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
       }
-      window.dispatchEvent(new Event('carrito:changed'))
+      window.dispatchEvent(new Event("carrito:changed"));
     } catch (e) {
-      console.error('Update cantidad error:', e)
-      setItems(snapshot) // rollback
+      console.error("Update cantidad error:", e);
+      setItems(snapshot); // rollback
       const message =
-        e instanceof Error ? e.message : 'No se pudo actualizar la cantidad'
-      Swal.fire('Atención', message, 'warning')
+        e instanceof Error ? e.message : "No se pudo actualizar la cantidad";
+      Swal.fire("Atención", message, "warning");
     }
-  }
+  };
 
   const removeItem = async (itemId: number, skipConfirmation = false) => {
     if (!skipConfirmation) {
       const c = await Swal.fire({
-        title: '¿Eliminar producto?',
-        text: 'Se quitará del carrito',
-        icon: 'warning',
+        title: "¿Eliminar producto?",
+        text: "Se quitará del carrito",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar',
-      })
-      if (!c.isConfirmed) return
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar",
+      });
+      if (!c.isConfirmed) return;
     }
 
-    const snapshot = [...items]
-    setItems((arr) => arr.filter((x) => x.id !== itemId))
+    const snapshot = [...items];
+    setItems((arr) => arr.filter((x) => x.id !== itemId));
 
     try {
-      const r = await fetch(`/api/carrito/${itemId}`, { method: 'DELETE', credentials: 'include' })
-      if (!r.ok) throw new Error('DELETE failed')
-      if (!skipConfirmation) Swal.fire('Eliminado', 'Producto quitado del carrito', 'success')
-      window.dispatchEvent(new Event('carrito:changed'))
+      const r = await fetch(`/api/carrito/${itemId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error("DELETE failed");
+      if (!skipConfirmation)
+        Swal.fire("Eliminado", "Producto quitado del carrito", "success");
+      window.dispatchEvent(new Event("carrito:changed"));
     } catch (e) {
-      console.error('Remove error:', e)
-      setItems(snapshot) // rollback
-      Swal.fire('Error', 'No se pudo eliminar el producto', 'error')
+      console.error("Remove error:", e);
+      setItems(snapshot); // rollback
+      Swal.fire("Error", "No se pudo eliminar el producto", "error");
     }
-  }
+  };
 
   // ✅ FLUJO DE PAGO ACTUALIZADO: crea orden + genera pago
   const handleCheckout = async () => {
@@ -241,34 +305,50 @@ export default function CarritoPage() {
       Swal.fire('Error', 'No se pudo procesar la compra', 'error')
 =======
     const confirm = await Swal.fire({
-      title: 'Procesar compra',
-      text: '¿Deseas finalizar tu compra?',
-      icon: 'question',
+      title: "Procesar compra",
+      text: "¿Deseas finalizar tu compra?",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Sí, procesar',
-      cancelButtonText: 'Cancelar',
-    })
+      confirmButtonColor: "#10b981",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Sí, procesar",
+      cancelButtonText: "Cancelar",
+    });
 
-    if (!confirm.isConfirmed) return
+    if (!confirm.isConfirmed) return;
 
     try {
-      setProcessing(true)
-      const r = await fetch('/api/carrito/checkout', { method: 'POST', credentials: 'include' })
-      if (!r.ok) throw new Error('Checkout failed')
-      Swal.fire({ title: '¡Compra realizada!', text: 'Tu orden fue registrada', icon: 'success' })
-      setItems([])
-      window.dispatchEvent(new Event('carrito:changed'))
+      setProcessing(true);
+      const r = await fetch("/api/carrito/checkout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!r.ok) throw new Error("Checkout failed");
+      const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+      const ip = localStorage.getItem("auth.ip") ?? null;
+      await logOk("Compra realizada", { userId, ip });
+      Swal.fire({
+        title: "¡Compra realizada!",
+        text: "Tu orden fue registrada",
+        icon: "success",
+      });
+      setItems([]);
+      window.dispatchEvent(new Event("carrito:changed"));
     } catch (e) {
-      console.error('Checkout error:', e)
-      Swal.fire('Error', 'No se pudo procesar la compra', 'error')
+      console.error("Checkout error:", e);
+      Swal.fire("Error", "No se pudo procesar la compra", "error");
     } finally {
+<<<<<<< HEAD
       setProcessing(false)
 >>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
     }
   }
 }
+=======
+      setProcessing(false);
+    }
+  };
+>>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
 
 <<<<<<< HEAD
   const calcularTotal = () => {
@@ -381,7 +461,10 @@ export default function CarritoPage() {
         <div className="animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl shadow p-4 flex gap-4">
+              <div
+                key={i}
+                className="bg-white rounded-xl shadow p-4 flex gap-4"
+              >
                 <div className="w-24 h-24 bg-gray-200 rounded" />
                 <div className="flex-1 space-y-3">
                   <div className="h-4 bg-gray-200 rounded w-2/3" />
@@ -395,10 +478,10 @@ export default function CarritoPage() {
           <div className="bg-white rounded-xl shadow p-6 h-56" />
         </div>
       </div>
-    )
+    );
   }
 
-  if (!isAuthenticated) return null
+  if (!isAuthenticated) return null;
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
@@ -409,12 +492,14 @@ export default function CarritoPage() {
         </div>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Mi Carrito</h1>
-          <p className="text-sm text-gray-500">Revisa tus productos antes de pagar</p>
+          <p className="text-sm text-gray-500">
+            Revisa tus productos antes de pagar
+          </p>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <EmptyState onBrowse={() => router.push('/productos')} />
+        <EmptyState onBrowse={() => router.push("/productos")} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Lista */}
@@ -444,11 +529,17 @@ export default function CarritoPage() {
 
               <div className="space-y-3 text-sm">
                 <Row label="Subtotal" value={money(subtotal)} />
-                <Row label="Envío" value={envio === 0 ? 'Gratis' : money(envio)} hint={subtotal > 200 ? 'Gratis desde Bs 200' : undefined} />
+                <Row
+                  label="Envío"
+                  value={envio === 0 ? "Gratis" : money(envio)}
+                  hint={subtotal > 200 ? "Gratis desde Bs 200" : undefined}
+                />
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Cupón</span>
-                    <span className="text-gray-800 font-semibold">{descuento ? `- ${money(descuento)}` : '—'}</span>
+                    <span className="text-gray-800 font-semibold">
+                      {descuento ? `- ${money(descuento)}` : "—"}
+                    </span>
                   </div>
                   <div className="mt-2 flex gap-2">
                     <input
@@ -458,7 +549,14 @@ export default function CarritoPage() {
                       className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <button
-                      onClick={() => coupon && Swal.fire('Cupón aplicado', 'Si es válido, verás el descuento', 'info')}
+                      onClick={() =>
+                        coupon &&
+                        Swal.fire(
+                          "Cupón aplicado",
+                          "Si es válido, verás el descuento",
+                          "info"
+                        )
+                      }
                       className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50"
                     >
                       Aplicar
@@ -466,7 +564,14 @@ export default function CarritoPage() {
                   </div>
                 </div>
                 <div className="border-t pt-3">
-                  <Row label={<span className="font-bold">Total</span>} value={<span className="text-emerald-600 font-bold">{money(total)}</span>} />
+                  <Row
+                    label={<span className="font-bold">Total</span>}
+                    value={
+                      <span className="text-emerald-600 font-bold">
+                        {money(total)}
+                      </span>
+                    }
+                  />
                 </div>
               </div>
 
@@ -475,7 +580,7 @@ export default function CarritoPage() {
                 disabled={processing}
                 className="mt-5 w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {processing ? 'Procesando…' : 'Procesar compra'}
+                {processing ? "Procesando…" : "Procesar compra"}
               </button>
 
               <div className="mt-4 grid grid-cols-3 gap-3 text-[11px] text-gray-500">
@@ -488,19 +593,25 @@ export default function CarritoPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ---------- Subcomponentes ----------
-function LineItem({ item, onInc, onDec, onRemove, money }: {
-  item: CarritoItem
-  onInc: () => void
-  onDec: () => void
-  onRemove: () => void
-  money: (n: number) => string
+function LineItem({
+  item,
+  onInc,
+  onDec,
+  onRemove,
+  money,
+}: {
+  item: CarritoItem;
+  onInc: () => void;
+  onDec: () => void;
+  onRemove: () => void;
+  money: (n: number) => string;
 }) {
-  const disponible = item.producto.stockActual ?? 0
-  const disableInc = disponible === 0 || item.cantidad >= disponible
+  const disponible = item.producto.stockActual ?? 0;
+  const disableInc = disponible === 0 || item.cantidad >= disponible;
 
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
@@ -508,9 +619,15 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
       <div className="w-full sm:w-28 h-28 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
         {item.producto.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.producto.imageUrl} alt={item.producto.nombre} className="w-full h-full object-cover" />
+          <img
+            src={item.producto.imageUrl}
+            alt={item.producto.nombre}
+            className="w-full h-full object-cover"
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin imagen</div>
+          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+            Sin imagen
+          </div>
         )}
       </div>
 
@@ -518,18 +635,24 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-semibold text-base sm:text-lg line-clamp-2">{item.producto.nombre}</h3>
-            <p className="text-xs sm:text-sm text-gray-500">{item.producto.marca.nombre}</p>
+            <h3 className="font-semibold text-base sm:text-lg line-clamp-2">
+              {item.producto.nombre}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-500">
+              {item.producto.marca.nombre}
+            </p>
             <p
               className={`text-xs sm:text-sm mt-1 ${
-                disponible === 0 ? 'text-rose-600' : 'text-gray-500'
+                disponible === 0 ? "text-rose-600" : "text-gray-500"
               }`}
             >
               {disponible === 0
-                ? 'Sin stock disponible'
+                ? "Sin stock disponible"
                 : `Stock disponible: ${disponible}`}
             </p>
-            <p className="text-emerald-600 font-bold mt-1">{money(item.producto.precio)}</p>
+            <p className="text-emerald-600 font-bold mt-1">
+              {money(item.producto.precio)}
+            </p>
           </div>
           <button
             aria-label="Quitar"
@@ -549,11 +672,13 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
             onDec={onDec}
             disableInc={disableInc}
           />
-          <p className="font-bold text-base sm:text-lg">{money(item.producto.precio * item.cantidad)}</p>
+          <p className="font-bold text-base sm:text-lg">
+            {money(item.producto.precio * item.cantidad)}
+          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function QuantityStepper({
@@ -562,10 +687,10 @@ function QuantityStepper({
   onDec,
   disableInc,
 }: {
-  value: number
-  onInc: () => void
-  onDec: () => void
-  disableInc?: boolean
+  value: number;
+  onInc: () => void;
+  onDec: () => void;
+  disableInc?: boolean;
 }) {
   return (
     <div className="inline-flex items-center rounded-xl border bg-white overflow-hidden">
@@ -576,24 +701,34 @@ function QuantityStepper({
       >
         <Minus size={16} />
       </button>
-      <span className="w-12 text-center font-semibold select-none">{value}</span>
+      <span className="w-12 text-center font-semibold select-none">
+        {value}
+      </span>
       <button
         aria-label="Aumentar"
         onClick={onInc}
         disabled={disableInc}
         className={`px-3 py-2 transition ${
           disableInc
-            ? 'opacity-50 cursor-not-allowed'
-            : 'hover:bg-gray-50 active:scale-[0.98]'
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:bg-gray-50 active:scale-[0.98]"
         }`}
       >
         <Plus size={16} />
       </button>
     </div>
-  )
+  );
 }
 
-function Row({ label, value, hint }: { label: React.ReactNode; value: React.ReactNode; hint?: string }) {
+function Row({
+  label,
+  value,
+  hint,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  hint?: string;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <div className="text-gray-600 flex items-center gap-2">
@@ -602,16 +737,22 @@ function Row({ label, value, hint }: { label: React.ReactNode; value: React.Reac
       </div>
       <div className="text-gray-900 font-semibold">{value}</div>
     </div>
-  )
+  );
 }
 
-function Badge({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+function Badge({
+  children,
+  icon,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5">
       {icon}
       <span>{children}</span>
     </div>
-  )
+  );
 }
 
 function EmptyState({ onBrowse }: { onBrowse: () => void }) {
@@ -621,7 +762,9 @@ function EmptyState({ onBrowse }: { onBrowse: () => void }) {
         <ShoppingCart />
       </div>
       <h2 className="text-xl sm:text-2xl font-bold">Tu carrito está vacío</h2>
-      <p className="text-gray-500 mt-1 max-w-sm mx-auto">Explora nuestros productos y agrega tus favoritos.</p>
+      <p className="text-gray-500 mt-1 max-w-sm mx-auto">
+        Explora nuestros productos y agrega tus favoritos.
+      </p>
       <button
         onClick={onBrowse}
         className="mt-6 bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-emerald-700"
@@ -629,5 +772,5 @@ function EmptyState({ onBrowse }: { onBrowse: () => void }) {
         Ver productos
       </button>
     </div>
-  )
+  );
 }
