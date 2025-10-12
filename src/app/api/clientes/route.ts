@@ -7,15 +7,15 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get('q') || '';
   const page = searchParams.get('page') || '1';
   const size = searchParams.get('size') || '10';
-  const activo = searchParams.get('activo') || '';
+  const status = searchParams.get('status') || '';
 
   const params = new URLSearchParams();
   if (q) params.append('q', q);
   params.append('page', page);
   params.append('size', size);
-  if (activo) params.append('activo', activo);
+  if (status) params.append('status', status);
 
-  const r = await fetch(`${api}/clientes?${params.toString()}`, {
+  const r = await fetch(`${api}/users/clientes?${params.toString()}`, {
     headers: { cookie: req.headers.get('cookie') ?? '' },
     credentials: 'include',
     cache: 'no-store',
@@ -29,15 +29,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
+  
+  // Agregar rol CLIENTE al body si no está presente
+  const userData = {
+    ...body,
+    roles: ['CLIENTE']
+  };
 
-  const r = await fetch(`${api}/clientes`, {
+  const r = await fetch(`${api}/users/internal`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       cookie: req.headers.get('cookie') ?? '',
     },
     credentials: 'include',
-    body: JSON.stringify(body),
+    body: JSON.stringify(userData),
   });
 
   return new Response(await r.text(), {

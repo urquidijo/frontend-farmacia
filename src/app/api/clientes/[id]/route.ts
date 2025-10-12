@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const r = await fetch(`${api}/clientes/${id}`, {
+  const r = await fetch(`${api}/users/${id}`, {
     headers: { cookie: req.headers.get('cookie') ?? '' },
     credentials: 'include',
     cache: 'no-store',
@@ -26,7 +26,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
 
-  const r = await fetch(`${api}/clientes/${id}`, {
+  const r = await fetch(`${api}/users/${id}`, {
     method: 'PATCH',
     headers: {
       'content-type': 'application/json',
@@ -47,7 +47,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const r = await fetch(`${api}/clientes/${id}`, {
+  const r = await fetch(`${api}/users/${id}`, {
     method: 'DELETE',
     headers: { cookie: req.headers.get('cookie') ?? '' },
     credentials: 'include',
