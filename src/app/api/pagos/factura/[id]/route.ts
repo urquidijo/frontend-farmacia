@@ -1,14 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: { id: string } | Promise<{ id: string }>
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const params = await context.params
+  const { id } = params
+
   try {
     const backendUrl =
       process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 
-    const response = await fetch(`${backendUrl}/pagos/factura/${params.id}`, {
+    const response = await fetch(`${backendUrl}/pagos/factura/${id}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     })
