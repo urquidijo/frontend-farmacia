@@ -15,7 +15,7 @@ import {
 import { loadStripe } from "@stripe/stripe-js";
 import { logOk } from "@/lib/bitacora";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
+const stripePromise = loadStripe(process.env.STRIPE_PUBLIC_KEY!);
 
 interface CarritoItem {
   id: number;
