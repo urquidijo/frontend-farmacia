@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Swal from "sweetalert2";
+import { Printer } from "lucide-react";
+import { jsPDF } from "jspdf";
 
 type AlertType = "STOCK_BAJO" | "VENCIMIENTO";
 type AlertSeverity = "INFO" | "WARNING" | "CRITICAL";
@@ -87,6 +90,9 @@ export default function AlertsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [canManage, setCanManage] = useState(false);
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
+  const [showReportActions, setShowReportActions] = useState(false);
 
   const severityBadge = useCallback((severity: AlertSeverity) => {
     const base =
@@ -99,6 +105,332 @@ export default function AlertsPage() {
       severity === "CRITICAL" ? "Critica" : severity === "WARNING" ? "Advertencia" : "Informativa";
     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${base}`}>{label}</span>;
   }, []);
+
+  const formatDate = useCallback((iso: string) => {
+    try {
+      return new Intl.DateTimeFormat("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(new Date(iso));
+    } catch {
+      return iso;
+    }
+  }, []);
+
+  const formatLongDate = useCallback((iso?: string) => {
+    const date = iso ? new Date(iso) : new Date();
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  }, []);
+
+  const severityLabel = useCallback((severity: AlertSeverity) => {
+    switch (severity) {
+      case "CRITICAL":
+        return "Crítica";
+      case "WARNING":
+        return "Advertencia";
+      default:
+        return "Informativa";
+    }
+  }, []);
+
+  const typeLabel = useCallback((type: AlertType) => {
+    switch (type) {
+      case "STOCK_BAJO":
+        return "Stock bajo";
+      case "VENCIMIENTO":
+        return "Vencimiento";
+      default:
+        return type;
+    }
+  }, []);
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildReportHTML = useCallback(
+    (items: AlertItem[]) => {
+      const periodoStr =
+        fechaInicio && fechaFin
+          ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+          : "Todos los registros";
+      const generadoStr = formatLongDate();
+
+      const total = items.length;
+      const sinLeer = items.filter((a) => !a.leida).length;
+      const criticas = items.filter((a) => a.severity === "CRITICAL").length;
+      const advertencias = items.filter((a) => a.severity === "WARNING").length;
+      const informativas = items.filter((a) => a.severity === "INFO").length;
+
+      const rows = items
+        .map((alert, idx) => {
+          const dias =
+            alert.venceEnDias === null || alert.venceEnDias === undefined
+              ? "-"
+              : `${alert.venceEnDias} día${alert.venceEnDias === 1 ? "" : "s"}`;
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td>${alert.producto.nombre}</td>
+              <td>${typeLabel(alert.type)}</td>
+              <td>${severityLabel(alert.severity)}</td>
+              <td>${alert.producto.stockActual ?? 0}</td>
+              <td>${alert.producto.stockMinimo ?? "-"}</td>
+              <td>${dias}</td>
+              <td>${alert.leida ? "Leída" : "Pendiente"}</td>
+              <td>${formatDate(alert.createdAt)}</td>
+            </tr>`;
+        })
+        .join("");
+
+      const css = `
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+        .report { width: 210mm; min-height: 297mm; margin: 0 auto; border: 2px solid #333; padding: 16px; display: flex; flex-direction: column; }
+        .report-content { flex: 1 1 auto; }
+        .report-footer { text-align: center; margin-top: auto; padding-top: 8mm; }
+        .title { text-align:center; font-weight: bold; font-size: 18px; margin-top: 8px; }
+        .subtitle { text-align:center; font-size: 14px; margin-bottom: 8px; }
+        .section { border-top: 1px solid #333; margin-top: 12px; padding-top: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; border-bottom: 2px solid #333; padding: 6px 8px; font-size: 12px; }
+        td { font-size: 12px; padding: 4px 8px; border-bottom: 1px solid #ccc; }
+        .muted { color: #333; font-size: 12px; }
+        .center { text-align:center; }
+        .stats li { margin: 4px 0; }
+        .signature-line { width: 60%; margin: 16px auto 0; border-top: 1px solid #333; padding-top: 8px; }
+      `;
+
+      return `<!DOCTYPE html>
+      <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <title>Reporte de Alertas</title>
+          <style>${css}</style>
+        </head>
+        <body>
+          <div class="report">
+            <div class="report-content">
+              <div class="title">REPORTE DE ALERTAS DE INVENTARIO</div>
+              <div class="subtitle">Farmacia</div>
+
+              <div class="section">
+                <div class="muted">PERIODO: ${periodoStr}</div>
+                <div class="muted">FECHA DE GENERACIÓN: ${generadoStr}</div>
+              </div>
+
+              <div class="section">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>PRODUCTO</th>
+                      <th>TIPO</th>
+                      <th>SEVERIDAD</th>
+                      <th>STOCK ACTUAL</th>
+                      <th>STOCK MÍNIMO</th>
+                      <th>DIAS RESTANTES</th>
+                      <th>ESTADO</th>
+                      <th>FECHA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="section center">
+                <div style="font-weight:bold;">RESUMEN</div>
+                <ul class="stats" style="list-style: disc; display:inline-block; text-align:left;">
+                  <li>Total alertas: ${total}</li>
+                  <li>Alertas sin leer: ${sinLeer}</li>
+                  <li>Alertas críticas: ${criticas}</li>
+                  <li>Alertas de advertencia: ${advertencias}</li>
+                  <li>Alertas informativas: ${informativas}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="report-footer">
+              <div class="signature-line">Responsable del reporte</div>
+            </div>
+          </div>
+        </body>
+      </html>`;
+    },
+    [fechaInicio, fechaFin, formatDate, formatLongDate, severityLabel, typeLabel],
+  );
+
+  const downloadHTML = useCallback(
+    (html: string) => {
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      triggerDownload(blob, "reporte-alertas.html");
+    },
+    [],
+  );
+
+  const downloadExcel = useCallback(
+    (html: string) => {
+      const match = html.match(/<table[\s\S]*?<\/table>/i);
+      const tableHtml = match ? match[0] : "";
+      const xlsHtml = `<!DOCTYPE html><html><head><meta charset="utf-8" /></head><body>${tableHtml}</body></html>`;
+      const blob = new Blob([xlsHtml], { type: "application/vnd.ms-excel" });
+      triggerDownload(blob, "reporte-alertas.xls");
+    },
+    [],
+  );
+
+  const downloadPDF = useCallback(
+    async (items: AlertItem[]) => {
+      Swal.fire({
+        title: "Generando PDF...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+      try {
+        const doc = new jsPDF("p", "mm", "a4");
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        const startX = margin;
+        const rowH = 7;
+        let y = margin;
+
+        const periodoStr =
+          fechaInicio && fechaFin
+            ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+            : "Todos los registros";
+        const generadoStr = formatLongDate();
+
+        const drawFrame = () => {
+          doc.setDrawColor(60);
+          doc.setLineWidth(0.4);
+          doc.rect(5, 5, pageW - 10, pageH - 10);
+        };
+
+        drawFrame();
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("REPORTE DE ALERTAS", pageW / 2, y, { align: "center" });
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.text("Farmacia", pageW / 2, y, { align: "center" });
+        y += 6;
+        doc.line(margin, y, pageW - margin, y);
+        y += 6;
+
+        doc.setFontSize(10);
+        doc.text(`PERIODO: ${periodoStr}`, margin, y);
+        y += 5;
+        doc.text(`FECHA DE GENERACIÓN: ${generadoStr}`, margin, y);
+        y += 8;
+
+        const headers = ["#", "Producto", "Tipo", "Severidad", "Stock", "Dias", "Estado"];
+        const widths = [8, 55, 28, 28, 25, 18, 24];
+
+        const drawTableHeader = () => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          let x = startX;
+          headers.forEach((h, idx) => {
+            doc.text(h, x + 1, y);
+            x += widths[idx];
+          });
+          doc.setLineWidth(0.4);
+          doc.line(margin, y + 2, pageW - margin, y + 2);
+          y += 6;
+        };
+
+        const addPageIfNeeded = () => {
+          if (y + rowH > pageH - margin - 25) {
+            doc.addPage();
+            drawFrame();
+            y = margin;
+            drawTableHeader();
+          }
+        };
+
+        drawTableHeader();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+
+        items.forEach((alert, idx) => {
+          addPageIfNeeded();
+          const dias =
+            alert.venceEnDias === null || alert.venceEnDias === undefined
+              ? "-"
+              : `${alert.venceEnDias}d`;
+          const cells = [
+            String(idx + 1),
+            alert.producto.nombre,
+            typeLabel(alert.type),
+            severityLabel(alert.severity),
+            `${alert.producto.stockActual ?? 0}/${alert.producto.stockMinimo ?? "-"}`,
+            dias,
+            alert.leida ? "Leída" : "Pendiente",
+          ];
+          let x = startX;
+          cells.forEach((cell, index) => {
+            doc.text(cell, x + 1, y);
+            x += widths[index];
+          });
+          doc.setDrawColor(200);
+          doc.setLineWidth(0.2);
+          doc.line(margin, y + 2.5, pageW - margin, y + 2.5);
+          doc.setDrawColor(60);
+          y += rowH;
+        });
+
+        const total = items.length;
+        const sinLeer = items.filter((a) => !a.leida).length;
+        const criticas = items.filter((a) => a.severity === "CRITICAL").length;
+        const advertencias = items.filter((a) => a.severity === "WARNING").length;
+        const informativas = items.filter((a) => a.severity === "INFO").length;
+
+        addPageIfNeeded();
+        doc.setLineWidth(0.4);
+        doc.line(margin, y, pageW - margin, y);
+        y += 7;
+        doc.setFont("helvetica", "bold");
+        doc.text("Resumen", margin, y);
+        y += 5;
+        doc.setFont("helvetica", "normal");
+        const summaryLines = [
+          `Total alertas: ${total}`,
+          `Alertas sin leer: ${sinLeer}`,
+          `Críticas: ${criticas}`,
+          `Advertencias: ${advertencias}`,
+          `Informativas: ${informativas}`,
+        ];
+        summaryLines.forEach((line) => {
+          doc.text(line, margin, y);
+          y += 5;
+        });
+
+        Swal.close();
+        doc.save("reporte-alertas.pdf");
+      } catch (error) {
+        console.error(error);
+        Swal.fire("Error", "No se pudo generar el PDF", "error");
+      }
+    },
+    [fechaInicio, fechaFin, formatLongDate, typeLabel, severityLabel],
+  );
 
   const fetchPermissions = useCallback(async () => {
     try {
@@ -204,6 +536,56 @@ export default function AlertsPage() {
   };
 
   const totalPages = meta.totalPages || 1;
+
+  const alertsForReport = useMemo(() => {
+    if (!fechaInicio && !fechaFin) return alerts;
+    if (!fechaInicio || !fechaFin) return alerts;
+    const start = new Date(fechaInicio);
+    const end = new Date(fechaFin);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return alerts;
+    end.setHours(23, 59, 59, 999);
+    return alerts.filter((alert) => {
+      const created = new Date(alert.createdAt);
+      return created >= start && created <= end;
+    });
+  }, [alerts, fechaInicio, fechaFin]);
+
+  const handleGenerarReporte = () => {
+    if ((fechaInicio && !fechaFin) || (!fechaInicio && fechaFin)) {
+      Swal.fire({
+        title: "Atención",
+        text: "Por favor selecciona ambas fechas para filtrar por rango",
+        icon: "warning",
+      });
+      return;
+    }
+
+    if (fechaInicio && fechaFin) {
+      const start = new Date(fechaInicio);
+      const end = new Date(fechaFin);
+      if (start > end) {
+        Swal.fire({
+          title: "Atención",
+          text: "La fecha de inicio no puede ser mayor que la fecha fin",
+          icon: "warning",
+        });
+        return;
+      }
+    }
+
+    if (!alertsForReport.length) {
+      Swal.fire("Sin datos", "No hay alertas para el periodo seleccionado.", "info");
+      return;
+    }
+
+    setShowReportActions(true);
+  };
+
+  const handleResetReporte = () => {
+    setFechaInicio("");
+    setFechaFin("");
+    setShowReportActions(false);
+  };
 
   const summaryText = useMemo(() => {
     if (!meta.total) return "Sin alertas registradas.";
@@ -319,6 +701,76 @@ export default function AlertsPage() {
           />
         </div>
       </div>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 lg:max-w-xl">
+          <div>
+            <label className="text-xs font-medium text-zinc-600">Fecha inicio</label>
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-zinc-600">Fecha fin</label>
+            <input
+              type="date"
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleGenerarReporte}
+            className="flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            <Printer size={18} />
+            Generar reporte
+          </button>
+          <button
+            onClick={handleResetReporte}
+            className="rounded-md bg-gray-500 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600"
+          >
+            Limpiar fechas
+          </button>
+        </div>
+      </div>
+
+      {showReportActions && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <span className="text-zinc-600">Descargar como:</span>
+          <button
+            onClick={async () => {
+              await downloadPDF(alertsForReport);
+            }}
+            className="rounded-md bg-rose-600 px-3 py-2 text-white hover:bg-rose-700"
+          >
+            PDF
+          </button>
+          <button
+            onClick={() => {
+              const html = buildReportHTML(alertsForReport);
+              downloadExcel(html);
+            }}
+            className="rounded-md bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700"
+          >
+            Excel
+          </button>
+          <button
+            onClick={() => {
+              const html = buildReportHTML(alertsForReport);
+              downloadHTML(html);
+            }}
+            className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
+          >
+            HTML
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
