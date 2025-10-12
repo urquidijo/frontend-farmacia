@@ -79,9 +79,9 @@ export default function RegisterPage() {
     loading;
 
   return (
-    // Capa fija a pantalla completa (sin scroll, ignora padres)
-    <div className="fixed inset-0 bg-gradient-to-br from-emerald-50 to-white overflow-hidden">
-      <div className="h-full w-full flex items-center justify-center px-4">
+    // Permite scroll en pantallas pequeñas + padding seguro (titulo no se corta)
+    <div className="fixed inset-0 bg-gradient-to-br from-emerald-50 to-white overflow-y-auto sm:overflow-hidden">
+      <div className="min-h-full w-full flex items-start sm:items-center justify-center px-4 py-6 sm:py-0 pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),1rem)]">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
           {/* Header cálido */}
           <div className="text-center space-y-2">
@@ -91,7 +91,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Beneficios compactos (chips) */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
             <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-xs">
               <Truck className="w-4 h-4" /> Envíos 24h
             </div>
@@ -105,7 +105,6 @@ export default function RegisterPage() {
               <ShieldCheck className="w-4 h-4" /> Compra segura
             </div>
           </div>
-
 
           {/* Formulario */}
           <form onSubmit={onSubmit} className="space-y-4">
@@ -122,7 +121,7 @@ export default function RegisterPage() {
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="relative block">
                 <User className="absolute left-3 top-3 h-5 w-5 text-zinc-400" />
                 <input
@@ -196,7 +195,7 @@ export default function RegisterPage() {
               Quiero recibir ofertas y recordatorios personalizados
             </label>
 
-            {err && <p className="text-red-600 text-sm">{err}</p>}
+            {err && <p className="text-red-600 text-sm" aria-live="polite">{err}</p>}
 
             <button
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-semibold shadow disabled:opacity-60 transition-colors"

@@ -103,7 +103,30 @@ export default function HomePage() {
         // Disparar evento para actualizar contador del carrito
         window.dispatchEvent(new Event('carrito:changed'))
       } else {
-        throw new Error('Error al agregar')
+        let message = 'No se pudo agregar al carrito'
+        try {
+          const raw = await response.text()
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw)
+              const candidate = Array.isArray(parsed?.message)
+                ? parsed.message[0]
+                : parsed?.message
+              if (candidate) message = candidate
+            } catch {
+              message = raw
+            }
+          }
+        } catch {
+          // ignorar errores de parseo
+        }
+
+        Swal.fire(
+          response.status === 400 ? 'Sin stock' : 'Error',
+          message,
+          response.status === 400 ? 'warning' : 'error',
+        )
+        return
       }
     } catch (error) {
       console.error('Error:', error)
