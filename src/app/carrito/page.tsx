@@ -1,18 +1,5 @@
 "use client";
 
-<<<<<<< HEAD
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Swal from 'sweetalert2'
-<<<<<<< HEAD
-import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react'
-import { loadStripe } from '@stripe/stripe-js'
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!)
-=======
-import { Trash2, Plus, Minus, ShoppingCart, Package, ShieldCheck, Truck } from 'lucide-react'
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-=======
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -25,8 +12,10 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
 import { logOk } from "@/lib/bitacora";
->>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
 
 interface CarritoItem {
   id: number;
@@ -49,7 +38,6 @@ export default function CarritoPage() {
   const [coupon, setCoupon] = useState("");
   const router = useRouter();
 
-  // ---------- Helpers ----------
   const money = (n: number) =>
     new Intl.NumberFormat("es-BO", {
       style: "currency",
@@ -77,7 +65,6 @@ export default function CarritoPage() {
     [subtotal, envio, descuento]
   );
 
-  // ---------- Effects ----------
   useEffect(() => {
     checkAuth();
   }, []);
@@ -97,30 +84,16 @@ export default function CarritoPage() {
           message = raw;
         }
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return message;
   };
 
   const checkAuth = async () => {
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
-      const response = await fetch('/api/me', { credentials: 'include' })
-      if (response.ok) {
-=======
-      const r = await fetch('/api/me', { credentials: 'include' })
-      if (r.ok) {
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-        setIsAuthenticated(true)
-        await fetchCarrito()
-=======
       const r = await fetch("/api/me", { credentials: "include" });
       if (r.ok) {
         setIsAuthenticated(true);
         await fetchCarrito();
->>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
       } else {
         setIsAuthenticated(false);
         setLoading(false);
@@ -154,22 +127,9 @@ export default function CarritoPage() {
     }
   };
 
-  // ---------- Mutations (optimistas con rollback) ----------
   const updateCantidad = async (itemId: number, newCantidad: number) => {
-<<<<<<< HEAD
-<<<<<<< HEAD
-    if (newCantidad < 1) {
-      await removeItem(itemId, true)
-      return
-    }
-=======
-    const idx = items.findIndex((x) => x.id === itemId)
-    if (idx === -1) return
-=======
     const idx = items.findIndex((x) => x.id === itemId);
     if (idx === -1) return;
->>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
-
     if (newCantidad < 1) return removeItem(itemId, true);
 
     const prev = items[idx];
@@ -178,28 +138,12 @@ export default function CarritoPage() {
     next[idx] = { ...prev, cantidad: newCantidad };
     setItems(next);
 
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
     try {
       const r = await fetch(`/api/carrito/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ cantidad: newCantidad }),
-<<<<<<< HEAD
-      })
-<<<<<<< HEAD
-      if (response.ok) {
-        fetchCarrito()
-        window.dispatchEvent(new Event('carrito:changed'))
-=======
-      if (!r.ok) {
-        const message = await parseErrorMessage(
-          r,
-          'No se pudo actualizar la cantidad',
-        )
-        throw new Error(message)
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-=======
       });
       if (!r.ok) {
         const message = await parseErrorMessage(
@@ -207,12 +151,11 @@ export default function CarritoPage() {
           "No se pudo actualizar la cantidad"
         );
         throw new Error(message);
->>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
       }
       window.dispatchEvent(new Event("carrito:changed"));
     } catch (e) {
       console.error("Update cantidad error:", e);
-      setItems(snapshot); // rollback
+      setItems(snapshot);
       const message =
         e instanceof Error ? e.message : "No se pudo actualizar la cantidad";
       Swal.fire("Atención", message, "warning");
@@ -248,62 +191,13 @@ export default function CarritoPage() {
       window.dispatchEvent(new Event("carrito:changed"));
     } catch (e) {
       console.error("Remove error:", e);
-      setItems(snapshot); // rollback
+      setItems(snapshot);
       Swal.fire("Error", "No se pudo eliminar el producto", "error");
     }
   };
 
-  // ✅ FLUJO DE PAGO ACTUALIZADO: crea orden + genera pago
+  // ✅ FLUJO DE CHECKOUT (orden + Stripe)
   const handleCheckout = async () => {
-<<<<<<< HEAD
-  const result = await Swal.fire({
-    title: 'Procesar compra',
-    text: '¿Deseas finalizar tu compra?',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonColor: '#10b981',
-    cancelButtonColor: '#6b7280',
-    confirmButtonText: 'Sí, procesar',
-    cancelButtonText: 'Cancelar',
-  })
-
-  if (result.isConfirmed) {
-    try {
-      // 🧾 1. Crear la orden desde el carrito (tu endpoint real)
-      const ordenResponse = await fetch('/api/carrito/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      })
-
-      if (!ordenResponse.ok) throw new Error('Error al crear la orden')
-      const nuevaOrden = await ordenResponse.json()
-
-      // 💳 2. Crear el pago con Stripe usando el ID de la orden
-      const pagoResponse = await fetch('/api/pagos/crear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          ordenId: nuevaOrden.id,
-          monto: nuevaOrden.total,
-          moneda: 'usd',
-        }),
-      })
-
-      if (!pagoResponse.ok) throw new Error('Error al crear pago')
-      const data = await pagoResponse.json()
-
-      // 🔀 3. Redirigir al checkout de Stripe
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error('Stripe URL no recibida')
-      }
-    } catch (error) {
-      console.error('Error en checkout:', error)
-      Swal.fire('Error', 'No se pudo procesar la compra', 'error')
-=======
     const confirm = await Swal.fire({
       title: "Procesar compra",
       text: "¿Deseas finalizar tu compra?",
@@ -319,164 +213,55 @@ export default function CarritoPage() {
 
     try {
       setProcessing(true);
-      const r = await fetch("/api/carrito/checkout", {
+
+      // 1️⃣ Crear orden desde el carrito
+      const ordenResponse = await fetch("/api/carrito/checkout", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
-      if (!r.ok) throw new Error("Checkout failed");
+      if (!ordenResponse.ok) throw new Error("Error al crear la orden");
+      const nuevaOrden = await ordenResponse.json();
+
+      // 2️⃣ Crear sesión de pago Stripe
+      const pagoResponse = await fetch("/api/pagos/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ordenId: nuevaOrden.id,
+          monto: nuevaOrden.total,
+          moneda: "usd",
+        }),
+      });
+
+      if (!pagoResponse.ok) throw new Error("Error al crear pago");
+      const data = await pagoResponse.json();
+
+      // 3️⃣ Registrar log
       const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
       const ip = localStorage.getItem("auth.ip") ?? null;
-      await logOk("Compra realizada", { userId, ip });
-      Swal.fire({
-        title: "¡Compra realizada!",
-        text: "Tu orden fue registrada",
-        icon: "success",
-      });
-      setItems([]);
-      window.dispatchEvent(new Event("carrito:changed"));
-    } catch (e) {
-      console.error("Checkout error:", e);
+      await logOk("Compra iniciada", { userId, ip });
+
+      // 4️⃣ Redirigir a Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("Stripe URL no recibida");
+      }
+    } catch (error) {
+      console.error("Error en checkout:", error);
       Swal.fire("Error", "No se pudo procesar la compra", "error");
     } finally {
-<<<<<<< HEAD
-      setProcessing(false)
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-    }
-  }
-}
-=======
       setProcessing(false);
     }
   };
->>>>>>> cec8ec3afd4afc2f14c6ed85d35c4940ccce650a
 
-<<<<<<< HEAD
-  const calcularTotal = () => {
-    return items.reduce(
-      (total, item) => total + item.producto.precio * item.cantidad,
-      0
-    )
-  }
-
-  if (loading)
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-lg">Cargando...</div>
-      </div>
-    )
-
-  if (!isAuthenticated) return null
-
-  return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <ShoppingCart size={32} className="text-emerald-600" />
-        <h1 className="text-3xl font-bold">Mi Carrito</h1>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="text-center py-16">
-          <ShoppingCart size={64} className="mx-auto text-gray-300 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600 mb-2">
-            Tu carrito está vacío
-          </h2>
-          <p className="text-gray-500 mb-6">
-            Agrega productos para empezar tu compra
-          </p>
-          <button
-            onClick={() => router.push('/productos')}
-            className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition"
-          >
-            Ver productos
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white rounded-lg shadow-md p-4 flex gap-4"
-              >
-                <div className="w-24 h-24 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
-                  {item.producto.imageUrl ? (
-                    <img
-                      src={item.producto.imageUrl}
-                      alt={item.producto.nombre}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      Sin imagen
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">
-                    {item.producto.nombre}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {item.producto.marca.nombre}
-                  </p>
-                  <p className="text-emerald-600 font-bold mt-2">
-                    Bs. {item.producto.precio.toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-end justify-between">
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateCantidad(item.id, item.cantidad - 1)}
-                      className="bg-gray-200 hover:bg-gray-300 rounded p-1"
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <span className="w-12 text-center font-semibold">
-                      {item.cantidad}
-                    </span>
-                    <button
-                      onClick={() => updateCantidad(item.id, item.cantidad + 1)}
-                      className="bg-gray-200 hover:bg-gray-300 rounded p-1"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-
-                  <p className="font-bold text-lg">
-                    Bs. {(item.producto.precio * item.cantidad).toFixed(2)}
-                  </p>
-=======
   // ---------- UI ----------
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-xl shadow p-4 flex gap-4"
-              >
-                <div className="w-24 h-24 bg-gray-200 rounded" />
-                <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-2/3" />
-                  <div className="h-3 bg-gray-200 rounded w-1/3" />
-                  <div className="h-4 bg-gray-200 rounded w-24" />
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="bg-white rounded-xl shadow p-6 h-56" />
-        </div>
+      <div className="max-w-6xl mx-auto px-4 py-8 text-center">
+        <p>Cargando carrito...</p>
       </div>
     );
   }
@@ -485,7 +270,6 @@ export default function CarritoPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
           <ShoppingCart size={20} />
@@ -502,7 +286,6 @@ export default function CarritoPage() {
         <EmptyState onBrowse={() => router.push("/productos")} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Lista */}
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <LineItem
@@ -516,59 +299,26 @@ export default function CarritoPage() {
             ))}
           </div>
 
-<<<<<<< HEAD
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-              <h2 className="text-xl font-bold mb-4">Resumen de compra</h2>
-=======
-          {/* Resumen */}
           <aside className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow p-5 sticky top-4">
               <h2 className="text-lg font-bold mb-4">Resumen</h2>
->>>>>>> 3e60726cef087c62f29ca0801233c69ca4d06059
-
               <div className="space-y-3 text-sm">
                 <Row label="Subtotal" value={money(subtotal)} />
                 <Row
                   label="Envío"
-                  value={envio === 0 ? "Gratis" : money(envio)}
-                  hint={subtotal > 200 ? "Gratis desde Bs 200" : undefined}
+                  value={"Gratis"}
+              
                 />
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Cupón</span>
-                    <span className="text-gray-800 font-semibold">
-                      {descuento ? `- ${money(descuento)}` : "—"}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={coupon}
-                      onChange={(e) => setCoupon(e.target.value)}
-                      placeholder="Ingresa cupón (p. ej. UAGRM10)"
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <button
-                      onClick={() =>
-                        coupon &&
-                        Swal.fire(
-                          "Cupón aplicado",
-                          "Si es válido, verás el descuento",
-                          "info"
-                        )
-                      }
-                      className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50"
-                    >
-                      Aplicar
-                    </button>
-                  </div>
-                </div>
+                <Row
+                  label="Descuento"
+                  value={descuento ? `- ${money(descuento)}` : "—"}
+                />
                 <div className="border-t pt-3">
                   <Row
                     label={<span className="font-bold">Total</span>}
                     value={
                       <span className="text-emerald-600 font-bold">
-                        {money(total)}
+                        {money(total -15)}
                       </span>
                     }
                   />
@@ -615,10 +365,8 @@ function LineItem({
 
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
-      {/* Imagen */}
       <div className="w-full sm:w-28 h-28 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
         {item.producto.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.producto.imageUrl}
             alt={item.producto.nombre}
@@ -631,7 +379,6 @@ function LineItem({
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -640,15 +387,6 @@ function LineItem({
             </h3>
             <p className="text-xs sm:text-sm text-gray-500">
               {item.producto.marca.nombre}
-            </p>
-            <p
-              className={`text-xs sm:text-sm mt-1 ${
-                disponible === 0 ? "text-rose-600" : "text-gray-500"
-              }`}
-            >
-              {disponible === 0
-                ? "Sin stock disponible"
-                : `Stock disponible: ${disponible}`}
             </p>
             <p className="text-emerald-600 font-bold mt-1">
               {money(item.producto.precio)}
@@ -664,7 +402,6 @@ function LineItem({
           </button>
         </div>
 
-        {/* Controles */}
         <div className="mt-3 sm:mt-4 flex items-center justify-between gap-3">
           <QuantityStepper
             value={item.cantidad}
