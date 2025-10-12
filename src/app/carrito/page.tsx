@@ -14,6 +14,7 @@ interface CarritoItem {
     precio: number
     imageUrl?: string
     marca: { nombre: string }
+    stockActual: number
   }
 }
 
@@ -38,6 +39,27 @@ export default function CarritoPage() {
   useEffect(() => {
     checkAuth()
   }, [])
+
+  const parseErrorMessage = async (response: Response, fallback: string) => {
+    let message = fallback
+    try {
+      const raw = await response.text()
+      if (raw) {
+        try {
+          const data = JSON.parse(raw)
+          const candidate = Array.isArray(data?.message)
+            ? data.message[0]
+            : data?.message
+          if (candidate) message = candidate
+        } catch {
+          message = raw
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return message
+  }
 
   const checkAuth = async () => {
     try {
@@ -95,12 +117,20 @@ export default function CarritoPage() {
         credentials: 'include',
         body: JSON.stringify({ cantidad: newCantidad }),
       })
-      if (!r.ok) throw new Error('PATCH failed')
+      if (!r.ok) {
+        const message = await parseErrorMessage(
+          r,
+          'No se pudo actualizar la cantidad',
+        )
+        throw new Error(message)
+      }
       window.dispatchEvent(new Event('carrito:changed'))
     } catch (e) {
       console.error('Update cantidad error:', e)
       setItems(snapshot) // rollback
-      Swal.fire('Error', 'No se pudo actualizar la cantidad', 'error')
+      const message =
+        e instanceof Error ? e.message : 'No se pudo actualizar la cantidad'
+      Swal.fire('Atención', message, 'warning')
     }
   }
 
@@ -281,6 +311,9 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
   onRemove: () => void
   money: (n: number) => string
 }) {
+  const disponible = item.producto.stockActual ?? 0
+  const disableInc = disponible === 0 || item.cantidad >= disponible
+
   return (
     <div className="bg-white rounded-2xl shadow p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
       {/* Imagen */}
@@ -299,6 +332,15 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
           <div className="min-w-0">
             <h3 className="font-semibold text-base sm:text-lg line-clamp-2">{item.producto.nombre}</h3>
             <p className="text-xs sm:text-sm text-gray-500">{item.producto.marca.nombre}</p>
+            <p
+              className={`text-xs sm:text-sm mt-1 ${
+                disponible === 0 ? 'text-rose-600' : 'text-gray-500'
+              }`}
+            >
+              {disponible === 0
+                ? 'Sin stock disponible'
+                : `Stock disponible: ${disponible}`}
+            </p>
             <p className="text-emerald-600 font-bold mt-1">{money(item.producto.precio)}</p>
           </div>
           <button
@@ -313,7 +355,12 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
 
         {/* Controles */}
         <div className="mt-3 sm:mt-4 flex items-center justify-between gap-3">
-          <QuantityStepper value={item.cantidad} onInc={onInc} onDec={onDec} />
+          <QuantityStepper
+            value={item.cantidad}
+            onInc={onInc}
+            onDec={onDec}
+            disableInc={disableInc}
+          />
           <p className="font-bold text-base sm:text-lg">{money(item.producto.precio * item.cantidad)}</p>
         </div>
       </div>
@@ -321,7 +368,17 @@ function LineItem({ item, onInc, onDec, onRemove, money }: {
   )
 }
 
-function QuantityStepper({ value, onInc, onDec }: { value: number; onInc: () => void; onDec: () => void }) {
+function QuantityStepper({
+  value,
+  onInc,
+  onDec,
+  disableInc,
+}: {
+  value: number
+  onInc: () => void
+  onDec: () => void
+  disableInc?: boolean
+}) {
   return (
     <div className="inline-flex items-center rounded-xl border bg-white overflow-hidden">
       <button
@@ -335,7 +392,12 @@ function QuantityStepper({ value, onInc, onDec }: { value: number; onInc: () => 
       <button
         aria-label="Aumentar"
         onClick={onInc}
-        className="px-3 py-2 hover:bg-gray-50 active:scale-[0.98] transition"
+        disabled={disableInc}
+        className={`px-3 py-2 transition ${
+          disableInc
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:bg-gray-50 active:scale-[0.98]'
+        }`}
       >
         <Plus size={16} />
       </button>
