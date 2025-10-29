@@ -6,7 +6,6 @@ import {
   Shield,
   ShieldPlus,
   Search,
-  Edit2,
   Trash2,
   Save,
   RefreshCw,
@@ -72,6 +71,22 @@ export default function RolesPage() {
   const [savingPerms, setSavingPerms] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
 
+  // ------------------------ Select Role ------------------------
+  const selectRole = useCallback((id: number, roleObj?: Role) => {
+    setSelectedId(id);
+    const found = roleObj ?? roles.find(r => r.id === id);
+    if (!found) return;
+
+    setEditingRole({ name: found.name, description: found.description ?? '' });
+
+    const currentChecked = new Set<number>((found.permissions ?? []).map(p => p.permission.id));
+    setChecked(currentChecked);
+    setBaseline(new Set(currentChecked));
+
+    setLoadingRight(true);
+    setTimeout(() => setLoadingRight(false), 180);
+  }, [roles]);
+
   // ------------------------ Load ------------------------
   const fetchAll = useCallback(async () => {
     try {
@@ -90,7 +105,7 @@ export default function RolesPage() {
 
       if (rolesJson?.length) {
         const firstId = rolesJson[0].id;
-        selectRole(firstId, rolesJson[0], permsJson);
+        selectRole(firstId, rolesJson[0]);
       }
     } catch (e) {
       console.error(e);
@@ -98,27 +113,11 @@ export default function RolesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectRole]);
 
   useEffect(() => {
     void fetchAll();
   }, [fetchAll]);
-
-  // ------------------------ Select Role ------------------------
-  function selectRole(id: number, roleObj?: Role, permsSnapshot?: Permission[]) {
-    setSelectedId(id);
-    const found = roleObj ?? roles.find(r => r.id === id);
-    if (!found) return;
-    setEditingRole({ name: found.name, description: found.description ?? '' });
-
-    const currentChecked = new Set<number>((found.permissions ?? []).map(p => p.permission.id));
-    setChecked(currentChecked);
-    setBaseline(new Set(currentChecked));
-
-    // micro UX: carga derecha (si venimos desde otro rol)
-    setLoadingRight(true);
-    setTimeout(() => setLoadingRight(false), 180);
-  }
 
   // ------------------------ Filters ------------------------
   const filteredRoles = useMemo(() => {
@@ -211,7 +210,7 @@ export default function RolesPage() {
       setRoles(newRoles);
       const updated = newRoles.find(x => x.id === selectedId);
       if (updated) {
-        selectRole(selectedId, updated, allPerms);
+        selectRole(selectedId, updated);
         setBaseline(new Set(Array.from(checked))); // baseline = lo guardado
       }
 
@@ -240,7 +239,7 @@ export default function RolesPage() {
       const newRoles = (await r2.json()) as Role[];
       setRoles(newRoles);
       const updated = newRoles.find(x => x.id === selectedId);
-      if (updated) selectRole(selectedId, updated, allPerms);
+      if (updated) selectRole(selectedId, updated);
 
       Swal.fire('Éxito', 'Rol actualizado', 'success');
     } catch (e) {

@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, User, Printer } from 'lucide-react'
-
+import { useState, useEffect, useCallback } from 'react'
+import { Edit2, Trash2, User, Printer } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { jsPDF } from 'jspdf'
 
@@ -19,7 +18,6 @@ interface Cliente {
 
 export default function ClientesAdmin() {
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
   const [page, setPage] = useState(1)
@@ -37,7 +35,7 @@ export default function ClientesAdmin() {
   const [fechaFin, setFechaFin] = useState('')
   const [showReportActions, setShowReportActions] = useState(false)
 
-  // Utilidades para reporte
+  // ==== Utilidades para reporte ====
   const formatDate = (iso: string) => {
     try {
       const d = new Date(iso)
@@ -68,10 +66,10 @@ export default function ClientesAdmin() {
   }
 
   const buildReportHTML = (items: Cliente[]) => {
-    const now = new Date()
-    const periodoStr = fechaInicio && fechaFin
-      ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
-      : 'Todos los registros'
+    const periodoStr =
+      fechaInicio && fechaFin
+        ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+        : 'Todos los registros'
     const generadoStr = formatLongDate()
 
     // Estadísticas
@@ -87,9 +85,11 @@ export default function ClientesAdmin() {
       const dates = items.map(i => new Date(i.createdAt)).sort((a, b) => +a - +b)
       months = calcMonthsBetween(dates[0], dates[dates.length - 1])
     }
-    const promedio = total > 0 ? (total / months) : 0
+    const promedio = total > 0 ? total / months : 0
 
-    const rows = items.map((c, idx) => `
+    const rows = items
+      .map(
+        (c, idx) => `
       <tr>
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${idx + 1}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.firstName} ${c.lastName ?? ''}</td>
@@ -98,7 +98,9 @@ export default function ClientesAdmin() {
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${c.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}</td>
         <td style="padding:4px 8px;border-bottom:1px solid #ccc;">${formatDate(c.createdAt)}</td>
       </tr>
-    `).join('')
+    `,
+      )
+      .join('')
 
     const css = `
       * { box-sizing: border-box; }
@@ -209,9 +211,10 @@ export default function ClientesAdmin() {
       const margin = 15
       const innerW = pageW - margin * 2
 
-      const periodoStr = fechaInicio && fechaFin
-        ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
-        : 'Todos los registros'
+      const periodoStr =
+        fechaInicio && fechaFin
+          ? `${formatLongDate(fechaInicio)} - ${formatLongDate(fechaFin)}`
+          : 'Todos los registros'
       const generadoStr = formatLongDate()
 
       // Borde exterior
@@ -243,7 +246,7 @@ export default function ClientesAdmin() {
 
       // Cabecera tabla
       const headers = ['#', 'NOMBRE COMPLETO', 'CORREO', 'TELÉFONO', 'ESTADO', 'FECHA']
-      const widths = [8, 48, 48, 30, 20, 26] // total 180 aprox
+      const widths = [8, 48, 48, 30, 20, 26] // total aprox 180
       const startX = margin
       const rowH = 7
 
@@ -262,7 +265,7 @@ export default function ClientesAdmin() {
       }
 
       const addPageIfNeeded = () => {
-        if (y + rowH > pageH - margin - 25) { // dejar espacio para firma
+        if (y + rowH > pageH - margin - 25) {
           doc.addPage()
           // marco
           doc.setDrawColor(60)
@@ -310,7 +313,7 @@ export default function ClientesAdmin() {
         const dates = items.map(i => new Date(i.createdAt)).sort((a, b) => +a - +b)
         months = calcMonthsBetween(dates[0], dates[dates.length - 1])
       }
-      const promedio = total > 0 ? (total / months) : 0
+      const promedio = total > 0 ? total / months : 0
 
       addPageIfNeeded()
       // separador
@@ -354,23 +357,11 @@ export default function ClientesAdmin() {
     }
   }
 
-  useEffect(() => {
-    fetchClientes()
-  }, [page])
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setPage(1)
-      fetchClientes()
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [fechaInicio, fechaFin])
-
-  const fetchClientes = async () => {
+  // ==== Fetch de clientes (memoizado) ====
+  const fetchClientes = useCallback(async () => {
     try {
       let url = '/api/users/clientes'
-      
+
       if (fechaInicio && fechaFin) {
         const params = new URLSearchParams({
           fechaInicial: fechaInicio,
@@ -385,13 +376,11 @@ export default function ClientesAdmin() {
         url = `/api/users/clientes?${params}`
       }
 
-      const response = await fetch(url, {
-        credentials: 'include',
-      })
-      
+      const response = await fetch(url, { credentials: 'include' })
+
       if (response.ok) {
         const data = await response.json()
-        
+
         if (fechaInicio && fechaFin) {
           setClientes(data.clientes || [])
           setTotalPages(1)
@@ -402,10 +391,13 @@ export default function ClientesAdmin() {
       }
     } catch (error) {
       console.error('Error fetching clientes:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [page, fechaInicio, fechaFin])
+
+  // Un solo efecto: se dispara cuando cambian page o las fechas (vía dependencia de fetchClientes)
+  useEffect(() => {
+    fetchClientes()
+  }, [fetchClientes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -448,7 +440,10 @@ export default function ClientesAdmin() {
       console.error('Error:', error)
       Swal.fire({
         title: 'Error',
-        text: error instanceof Error ? error.message : 'Hubo un problema al guardar el cliente',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'Hubo un problema al guardar el cliente',
         icon: 'error',
       })
     }
@@ -507,7 +502,6 @@ export default function ClientesAdmin() {
       })
       return
     }
-
     setShowReportActions(true)
   }
 
@@ -756,7 +750,9 @@ export default function ClientesAdmin() {
                 <select
                   className="mt-1 block w-full border rounded-md px-3 py-2"
                   value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))}
+                  onChange={(e) =>
+                    setFormData(prev => ({ ...prev, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))
+                  }
                 >
                   <option value="ACTIVE">Activo</option>
                   <option value="INACTIVE">Inactivo</option>

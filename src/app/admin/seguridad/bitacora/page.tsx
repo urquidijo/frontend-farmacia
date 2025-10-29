@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Loader2, Search, CheckCircle2, XCircle, Calendar, RotateCcw, Download, Printer,
+  Loader2, Search, CheckCircle2, XCircle, Calendar, RotateCcw, Printer,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { jsPDF } from 'jspdf'
@@ -38,22 +38,6 @@ function clsx(...arr: (string | false | null | undefined)[]) {
   return arr.filter(Boolean).join(' ')
 }
 
-function toCSV(rows: BitacoraRow[]) {
-  const header = ['Fecha', 'Hora', 'Usuario', 'Email', 'IP', 'Acción', 'Estado']
-  const data = rows.map((r) => [
-    r.fecha_entrada,
-    r.hora_entrada,
-    r.user ? `${r.user.firstName ?? ''} ${r.user.lastName ?? ''}`.trim() : '',
-    r.user?.email ?? '',
-    r.ip ?? '',
-    r.acciones ?? '',
-    r.estado,
-  ])
-  const csv = [header, ...data]
-    .map((row) => row.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-  return csv
-}
 
 type EstadoFiltro = EstadoBitacora | 'TODOS'
 function isEstadoFiltro(v: string): v is EstadoFiltro {

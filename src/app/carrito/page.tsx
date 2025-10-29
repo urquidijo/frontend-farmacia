@@ -12,10 +12,8 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
 import { logOk } from "@/lib/bitacora";
 
-const stripePromise = loadStripe(process.env.STRIPE_PUBLIC_KEY!);
 
 interface CarritoItem {
   id: number;
@@ -35,7 +33,7 @@ export default function CarritoPage() {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [coupon, setCoupon] = useState("");
+  const [coupon] = useState("");
   const router = useRouter();
 
   const money = (n: number) =>

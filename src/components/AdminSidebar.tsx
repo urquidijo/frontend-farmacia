@@ -84,7 +84,7 @@ const SECTIONS: NavSection[] = [
     icon: <IconCog />,
     items: [
       { label: "Configuración", href: "/admin/avanzado/configuracion" },
-      { label: "Auditoría", href: "/admin/avanzado/auditoria" },
+      { label: "Backup", href: "/admin/avanzado/backup" },
     ],
   },
 ];
