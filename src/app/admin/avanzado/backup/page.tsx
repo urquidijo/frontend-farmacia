@@ -57,18 +57,9 @@ export default function AdminBackups() {
   const [error, setError] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const userId = Number(localStorage.getItem("auth.userId") ?? 0) || null;
+  const ip = localStorage.getItem("auth.ip") ?? null;
 
-  // metadatos para bitácora
-  const userId =
-    Number(
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem("auth.userId") ?? 0
-        : 0,
-    ) || null;
-  const ip =
-    typeof localStorage !== "undefined"
-      ? localStorage.getItem("auth.ip") ?? null
-      : null;
 
   // permisos flexibles (acepta backup.export/restore o cae a user.create)
   const has = useCallback(
