@@ -9,7 +9,6 @@ import {
   Trash2,
   Image as ImageIcon,
   Info,
-  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 

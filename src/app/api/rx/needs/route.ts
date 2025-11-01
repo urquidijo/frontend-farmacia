@@ -2,19 +2,21 @@ import type { NextRequest } from "next/server";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL!;
 
-// POST /api/carrito/checkout  ->  Nest: /carrito/checkout
+// POST /api/rx/needs  ->  Nest: /rx/needs
 export async function POST(req: NextRequest) {
-  // el front envía { verificationId?: string }
-  const body = await req.json().catch(() => ({}));
+  // Propaga x-user-id si el front lo envía (opcional: si tu backend usa JWT, puedes omitirlo)
+  const xUserId = req.headers.get("x-user-id") ?? "";
 
-  const res = await fetch(`${apiBase}/carrito/checkout`, {
+  const res = await fetch(`${apiBase}/rx/needs`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       cookie: req.headers.get("cookie") ?? "",
+      ...(xUserId ? { "x-user-id": xUserId } : {}),
     },
     credentials: "include",
-    body: JSON.stringify(body),
+    // esta ruta no requiere body; mandamos {} por consistencia
+    body: JSON.stringify({}),
   });
 
   const text = await res.text();
