@@ -433,7 +433,7 @@ export default function HomePage() {
         <Container className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-emerald-700">🧠 Recomendaciones para ti</h2>
+              <h2 className="text-2xl font-bold text-emerald-700">Recomendaciones para ti</h2>
               <p className="text-zinc-600 text-sm">
                 Basado en tus compras recientes y categorías que te interesan.
               </p>
