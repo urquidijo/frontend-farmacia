@@ -65,6 +65,7 @@ export default function NavBar() {
 
   const links = [
     { href: '/productos', label: 'Productos' },
+    { href: '/suscripciones', label: 'Suscripciones' },
     { href: '/facturas', label: 'Mis Facturas' },
   ]
 
