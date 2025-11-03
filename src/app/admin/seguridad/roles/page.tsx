@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import {
   Shield,
@@ -29,7 +29,7 @@ type EditingRole = { name: string; description?: string | null };
 
 // ------------------------ Helpers ------------------------
 function groupByModule(perms: Permission[]) {
-  // "user.read" => módulo "user"
+  // "user.read" => modulo "user"
   const map = new Map<string, Permission[]>();
   for (const p of perms) {
     const mod = p.key.includes('.') ? p.key.split('.')[0] : 'otros';
@@ -52,6 +52,7 @@ function setEquals(a: Set<number>, b: Set<number>) {
 // ------------------------ Page ------------------------
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
+  const rolesRef = useRef<Role[]>([]);
   const [allPerms, setAllPerms] = useState<Permission[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -65,16 +66,20 @@ export default function RolesPage() {
 
   // checked = permisos seleccionados actualmente (UI)
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  // baseline = permisos “guardados” del rol (para detectar cambios)
+  // baseline = permisos "guardados" del rol (para detectar cambios)
   const [baseline, setBaseline] = useState<Set<number>>(new Set());
 
   const [savingPerms, setSavingPerms] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
 
   // ------------------------ Select Role ------------------------
+  useEffect(() => {
+    rolesRef.current = roles;
+  }, [roles]);
+
   const selectRole = useCallback((id: number, roleObj?: Role) => {
     setSelectedId(id);
-    const found = roleObj ?? roles.find(r => r.id === id);
+    const found = roleObj ?? rolesRef.current.find(r => r.id === id);
     if (!found) return;
 
     setEditingRole({ name: found.name, description: found.description ?? '' });
@@ -85,7 +90,7 @@ export default function RolesPage() {
 
     setLoadingRight(true);
     setTimeout(() => setLoadingRight(false), 180);
-  }, [roles]);
+  }, []);
 
   // ------------------------ Load ------------------------
   const fetchAll = useCallback(async () => {
@@ -214,7 +219,7 @@ export default function RolesPage() {
         setBaseline(new Set(Array.from(checked))); // baseline = lo guardado
       }
 
-      Swal.fire('Éxito', 'Permisos guardados', 'success');
+      Swal.fire('Exito', 'Permisos guardados', 'success');
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo guardar los permisos', 'error');
@@ -241,7 +246,7 @@ export default function RolesPage() {
       const updated = newRoles.find(x => x.id === selectedId);
       if (updated) selectRole(selectedId, updated);
 
-      Swal.fire('Éxito', 'Rol actualizado', 'success');
+      Swal.fire('Exito', 'Rol actualizado', 'success');
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo actualizar el rol', 'error');
@@ -263,9 +268,9 @@ export default function RolesPage() {
     if (!name) return;
 
     const { value: description } = await Swal.fire({
-      title: 'Descripción (opcional)',
+      title: 'Descripcion (opcional)',
       input: 'text',
-      inputPlaceholder: 'Breve descripción',
+      inputPlaceholder: 'Breve descripcion',
       showCancelButton: true,
       confirmButtonText: 'Continuar',
     });
@@ -283,7 +288,7 @@ export default function RolesPage() {
       const list = (await r2.json()) as Role[];
       setRoles(list);
       selectRole(newRole.id, newRole);
-      Swal.fire('Éxito', 'Rol creado', 'success');
+      Swal.fire('Exito', 'Rol creado', 'success');
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo crear el rol', 'error');
@@ -294,7 +299,7 @@ export default function RolesPage() {
     const confirm = await Swal.fire({
       icon: 'warning',
       title: 'Eliminar rol',
-      text: 'Esta acción no se puede deshacer.',
+      text: 'Esta accion no se puede deshacer.',
       showCancelButton: true,
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar',
@@ -317,7 +322,7 @@ export default function RolesPage() {
         setChecked(new Set());
         setBaseline(new Set());
       }
-      Swal.fire('Éxito', 'Rol eliminado', 'success');
+      Swal.fire('Exito', 'Rol eliminado', 'success');
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo eliminar el rol', 'error');
@@ -447,7 +452,7 @@ export default function RolesPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-600">Descripción</label>
+                    <label className="text-xs text-gray-600">Descripcion</label>
                     <input
                       className="w-full rounded-lg border px-3 py-2"
                       value={editingRole.description ?? ''}
@@ -536,9 +541,9 @@ export default function RolesPage() {
                                   <button
                                     onClick={() => invertGroup(moduleKey)}
                                     className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-gray-50"
-                                    title="Invertir selección"
+                                    title="Invertir seleccion"
                                   >
-                                    ± Invertir
+                                    - Invertir
                                   </button>
                                 </div>
                               </div>
@@ -568,7 +573,7 @@ export default function RolesPage() {
                               </div>
 
                               <div className="mt-2 text-xs text-gray-500">
-                                {allSelected ? 'Todos seleccionados' : noneSelected ? 'Ninguno seleccionado' : 'Selección mixta'}
+                                {allSelected ? 'Todos seleccionados' : noneSelected ? 'Ninguno seleccionado' : 'Seleccion mixta'}
                               </div>
                             </div>
                           );

@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 
+interface Proveedor {
+  id: number;
+  nombre: string;
+}
+
 interface Producto {
   id: number;
   nombre: string;
@@ -25,6 +30,7 @@ interface Producto {
   marca: { id: number; nombre: string };
   categoria: { id: number; nombre: string };
   unidad: { id: number; codigo: string; nombre: string };
+  proveedor?: Proveedor | null;
   creadoEn: string;
   actualizadoEn: string;
   requiereReceta: boolean;
@@ -60,6 +66,9 @@ type ProductosResponse = {
   productos?: ProductoApi[];
   totalPages?: number;
 };
+type ProveedoresResponse = {
+  items?: Proveedor[];
+};
 
 type LoteApi = {
   id: number;
@@ -73,6 +82,7 @@ export default function ProductosAdmin() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [unidades, setUnidades] = useState<Unidad[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -112,11 +122,12 @@ export default function ProductosAdmin() {
     stockMinimo: 0,
     stockActual: 0,
     activo: true,
-    requiereReceta: false,
-    marcaId: "",
-    categoriaId: "",
-    unidadId: "",
-    imageFile: null as File | null,
+  requiereReceta: false,
+  marcaId: "",
+  categoriaId: "",
+  unidadId: "",
+  proveedorId: "",
+  imageFile: null as File | null,
     imageUrl: "",
     imageKey: "",
   });
@@ -146,6 +157,7 @@ export default function ProductosAdmin() {
         const mapped = (data.productos ?? []).map((producto) => ({
           ...producto,
           stockActual: Number(producto.stockActual ?? 0),
+          proveedor: producto.proveedor ?? null,
         }));
         setProductos(mapped);
         setTotalPages(data.totalPages ?? 1);
@@ -169,6 +181,7 @@ export default function ProductosAdmin() {
     fetchMarcas();
     fetchCategorias();
     fetchUnidades();
+    fetchProveedores();
   }, []);
 
   const fetchMarcas = async () => {
@@ -206,6 +219,21 @@ export default function ProductosAdmin() {
       }
     } catch (error) {
       console.error("Error fetching unidades:", error);
+    }
+  };
+
+  const fetchProveedores = async () => {
+    try {
+      const response = await fetch("/api/proveedores?page=1&pageSize=100", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (response.ok) {
+        const data = (await response.json()) as ProveedoresResponse;
+        setProveedores(data.items ?? []);
+      }
+    } catch (error) {
+      console.error("Error fetching proveedores:", error);
     }
   };
 
@@ -360,6 +388,10 @@ export default function ProductosAdmin() {
         imageData = await uploadImage(formData.imageFile);
       }
 
+      const proveedorIdValue = formData.proveedorId
+        ? parseInt(formData.proveedorId, 10)
+        : null;
+
       const productData = {
         nombre: formData.nombre,
         descripcion: formData.descripcion || null,
@@ -370,6 +402,7 @@ export default function ProductosAdmin() {
         marcaId: parseInt(formData.marcaId),
         categoriaId: parseInt(formData.categoriaId),
         unidadId: parseInt(formData.unidadId),
+        proveedorId: Number.isNaN(proveedorIdValue) ? null : proveedorIdValue,
         ...imageData,
       };
 
@@ -455,6 +488,7 @@ export default function ProductosAdmin() {
       marcaId: producto.marca.id.toString(),
       categoriaId: producto.categoria.id.toString(),
       unidadId: producto.unidad.id.toString(),
+      proveedorId: producto.proveedor ? producto.proveedor.id.toString() : "",
       imageFile: null,
       imageUrl: producto.imageUrl || "",
       imageKey: producto.imageKey || "",
@@ -510,6 +544,7 @@ export default function ProductosAdmin() {
       marcaId: "",
       categoriaId: "",
       unidadId: "",
+      proveedorId: "",
       imageFile: null,
       imageUrl: "",
       imageKey: "",
@@ -732,6 +767,9 @@ export default function ProductosAdmin() {
                   Categoria
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Proveedor
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Precio
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -803,6 +841,9 @@ export default function ProductosAdmin() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {producto.categoria.nombre}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {producto.proveedor ? producto.proveedor.nombre : "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       Bs. {Number(producto.precio).toFixed(2)}
@@ -1023,6 +1064,32 @@ export default function ProductosAdmin() {
                 </label>
                 <p className="mt-1 text-xs text-gray-500">
                   Si está activo, el producto solo se podrá vender con receta.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Proveedor
+                </label>
+                <select
+                  className="mt-1 block w-full border rounded-md px-3 py-2"
+                  value={formData.proveedorId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      proveedorId: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Sin proveedor asignado</option>
+                  {proveedores.map((proveedor) => (
+                    <option key={proveedor.id} value={proveedor.id}>
+                      {proveedor.nombre}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  AsociA� un proveedor para facilitar compras y reportes.
                 </p>
               </div>
 

@@ -47,6 +47,7 @@ const SECTIONS: NavSection[] = [
       { label: "Productos", href: "/admin/inventario/productos" },
       { label: "Alertas", href: "/admin/alerts" },
       { label: "Proveedores", href: "/admin/inventario/proveedores" },
+      { label: "Ordenes de compra", href: "/admin/inventario/ordenes-compra" },
     ],
   },
   {

@@ -1,0 +1,129 @@
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const payload = {
+        ...form,
+        nombre: form.nombre.trim(),
+        contacto: form.contacto?.trim() || undefined,
+        telefono: form.telefono?.trim() || undefined,
+        email: form.email?.trim() || undefined,
+        direccion: form.direccion?.trim() || undefined,
+        notas: form.notas?.trim() || undefined,
+      }
+      const url = editing ? `/api/proveedores/${editing.id}` : '/api/proveedores'
+      const method = editing ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      closeForm()
+      await refresh()
+    } catch (err) {
+      console.error('Error al guardar proveedor', err)
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el proveedor')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (prov: Proveedor) => {
+    if (!confirm(`¿Eliminar al proveedor "${prov.nombre}"?`)) return
+    setError('')
+    try {
+      const res = await fetch(`/api/proveedores/${prov.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(await res.text())
+      await refresh()
+    } catch (err) {
+      console.error('Error al eliminar proveedor', err)
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el proveedor')
+    }
+  }
+
+  const refresh = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      params.set('pageSize', String(PAGE_SIZE))
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim())
+      const res = await fetch(`/api/proveedores?${params.toString()}`, {
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const json: ListResponse = await res.json()
+      setProveedores(json.items)
+      setMeta({ total: json.total, totalPages: json.totalPages })
+    } catch (err) {
+      console.error('Error al refrescar proveedores', err)
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los proveedores')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const pagination = useMemo(() => {
+    const buttons = []
+    for (let i = 1; i <= meta.totalPages; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => setPage(i)}
+          className={`px-3 py-1 rounded-md border text-sm ${
+            page === i ? 'bg-emerald-600 text-white border-emerald-600' : 'hover:bg-zinc-100'
+          }`}
+        >
+          {i}
+        </button>,
+      )
+    }
+    return buttons
+  }, [meta.totalPages, page])
+
+  return (
+    <section className="space-y-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-800">Proveedores</h1>
+          <p className="text-sm text-zinc-500">
+            Gestiona la información de proveedores, contactos y datos de respaldo para tus compras.
+          </p>
+        </div>
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 transition"
+        >
+          Nuevo proveedor
+        </button>
+      </header>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:w-80">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setPage(1)
+              setSearch(e.target.value)
+            }}
+            placeholder="Buscar por nombre, contacto o email"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
+            🔍
+          </span>
+        </div>
+        <div className="text-sm text-zinc-500">
+          {meta.total} proveedor{meta.total === 1 ? '' : 'es'}
+        </div>
+      </div>
+
+  ... (rest of file)

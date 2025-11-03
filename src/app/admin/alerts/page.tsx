@@ -5,6 +5,9 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { Printer } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { usePurchaseDrafts } from "@/hooks/usePurchaseDrafts";
+
+const SUPPLIER_COST_FACTOR = 0.75;
 
 type AlertType = "STOCK_BAJO" | "VENCIMIENTO";
 type AlertSeverity = "INFO" | "WARNING" | "CRITICAL";
@@ -28,6 +31,13 @@ type AlertItem = {
     categoria?: string | null;
     stockActual: number | null;
     stockMinimo: number | null;
+    proveedor?: {
+      id: number;
+      nombre: string;
+      contacto?: string | null;
+      telefono?: string | null;
+      email?: string | null;
+    } | null;
   };
   lote?: {
     id: number;
@@ -93,6 +103,32 @@ export default function AlertsPage() {
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [showReportActions, setShowReportActions] = useState(false);
+  const { drafts, addItem } = usePurchaseDrafts();
+  const draftedItems = useMemo(() => {
+    const map = new Set<string>();
+    drafts.forEach((draft) => {
+      draft.items.forEach((item) => {
+        map.add(`${draft.proveedorId}:${item.productoId}`);
+      });
+    });
+    return map;
+  }, [drafts]);
+
+  const draftSummary = useMemo(
+    () =>
+      drafts.map(draft => ({
+        proveedorId: draft.proveedorId,
+        proveedorNombre: draft.proveedorNombre,
+        items: draft.items.length,
+        unidades: draft.items.reduce((sum, item) => sum + item.cantidad, 0),
+      })),
+    [drafts],
+  );
+
+  const totalDraftUnits = useMemo(
+    () => draftSummary.reduce((sum, item) => sum + item.unidades, 0),
+    [draftSummary],
+  );
 
   const severityBadge = useCallback((severity: AlertSeverity) => {
     const base =
@@ -127,10 +163,66 @@ export default function AlertsPage() {
     }).format(date);
   }, []);
 
+  const handleAddToPurchase = useCallback(
+    async (alert: AlertItem) => {
+      const proveedor = alert.producto.proveedor;
+      if (!proveedor) {
+        Swal.fire("Sin proveedor", "Asigna un proveedor al producto antes de generar la orden.", "info");
+        return;
+      }
+      const key = `${proveedor.id}:${alert.producto.id}`;
+      if (draftedItems.has(key)) {
+        Swal.fire("Producto ya agregado", "Este producto ya esta pendiente en la orden de compra para el proveedor.", "info");
+        return;
+      }
+      const stockActual = alert.stockActual ?? alert.producto.stockActual ?? 0;
+      const stockMinimo = alert.stockMinimo ?? alert.producto.stockMinimo ?? 0;
+      const sugerido = Math.max(stockMinimo - stockActual, 1);
+
+      let costoUnitario: number | undefined;
+      try {
+        const res = await fetch(`/api/productos/${alert.producto.id}`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const detalle = await res.json();
+          const raw = detalle?.precio;
+          const precioVenta =
+            typeof raw === "number" ? raw : raw !== undefined && raw !== null ? Number(raw) : undefined;
+          if (typeof precioVenta === "number" && !Number.isNaN(precioVenta)) {
+            costoUnitario = Number((precioVenta * SUPPLIER_COST_FACTOR).toFixed(2));
+          }
+        }
+      } catch (error) {
+        console.error("No se pudo obtener el precio del producto", error);
+      }
+
+      addItem({
+        proveedorId: proveedor.id,
+        proveedorNombre: proveedor.nombre,
+        productoId: alert.producto.id,
+        nombreProducto: alert.producto.nombre,
+        cantidad: sugerido,
+        costoUnitario,
+        stockActual,
+        stockMinimo,
+      });
+
+      Swal.fire({
+        title: "Producto agregado",
+        text: `Se anadio "${alert.producto.nombre}" a la orden de ${proveedor.nombre}.`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    },
+    [addItem, draftedItems],
+  );
+
   const severityLabel = useCallback((severity: AlertSeverity) => {
     switch (severity) {
       case "CRITICAL":
-        return "Crítica";
+        return "Critica";
       case "WARNING":
         return "Advertencia";
       default:
@@ -179,7 +271,7 @@ export default function AlertsPage() {
           const dias =
             alert.venceEnDias === null || alert.venceEnDias === undefined
               ? "-"
-              : `${alert.venceEnDias} día${alert.venceEnDias === 1 ? "" : "s"}`;
+              : `${alert.venceEnDias} dia${alert.venceEnDias === 1 ? "" : "s"}`;
           return `
             <tr>
               <td>${idx + 1}</td>
@@ -189,7 +281,7 @@ export default function AlertsPage() {
               <td>${alert.producto.stockActual ?? 0}</td>
               <td>${alert.producto.stockMinimo ?? "-"}</td>
               <td>${dias}</td>
-              <td>${alert.leida ? "Leída" : "Pendiente"}</td>
+              <td>${alert.leida ? "Leida" : "Pendiente"}</td>
               <td>${formatDate(alert.createdAt)}</td>
             </tr>`;
         })
@@ -228,7 +320,7 @@ export default function AlertsPage() {
 
               <div class="section">
                 <div class="muted">PERIODO: ${periodoStr}</div>
-                <div class="muted">FECHA DE GENERACIÓN: ${generadoStr}</div>
+                <div class="muted">FECHA DE GENERACION: ${generadoStr}</div>
               </div>
 
               <div class="section">
@@ -240,7 +332,7 @@ export default function AlertsPage() {
                       <th>TIPO</th>
                       <th>SEVERIDAD</th>
                       <th>STOCK ACTUAL</th>
-                      <th>STOCK MÍNIMO</th>
+                      <th>STOCK MINIMO</th>
                       <th>DIAS RESTANTES</th>
                       <th>ESTADO</th>
                       <th>FECHA</th>
@@ -257,7 +349,7 @@ export default function AlertsPage() {
                 <ul class="stats" style="list-style: disc; display:inline-block; text-align:left;">
                   <li>Total alertas: ${total}</li>
                   <li>Alertas sin leer: ${sinLeer}</li>
-                  <li>Alertas críticas: ${criticas}</li>
+                  <li>Alertas criticas: ${criticas}</li>
                   <li>Alertas de advertencia: ${advertencias}</li>
                   <li>Alertas informativas: ${informativas}</li>
                 </ul>
@@ -337,7 +429,7 @@ export default function AlertsPage() {
         doc.setFontSize(10);
         doc.text(`PERIODO: ${periodoStr}`, margin, y);
         y += 5;
-        doc.text(`FECHA DE GENERACIÓN: ${generadoStr}`, margin, y);
+        doc.text(`FECHA DE GENERACION: ${generadoStr}`, margin, y);
         y += 8;
 
         const headers = ["#", "Producto", "Tipo", "Severidad", "Stock", "Dias", "Estado"];
@@ -382,7 +474,7 @@ export default function AlertsPage() {
             severityLabel(alert.severity),
             `${alert.producto.stockActual ?? 0}/${alert.producto.stockMinimo ?? "-"}`,
             dias,
-            alert.leida ? "Leída" : "Pendiente",
+            alert.leida ? "Leida" : "Pendiente",
           ];
           let x = startX;
           cells.forEach((cell, index) => {
@@ -413,7 +505,7 @@ export default function AlertsPage() {
         const summaryLines = [
           `Total alertas: ${total}`,
           `Alertas sin leer: ${sinLeer}`,
-          `Críticas: ${criticas}`,
+          `Criticas: ${criticas}`,
           `Advertencias: ${advertencias}`,
           `Informativas: ${informativas}`,
         ];
@@ -553,7 +645,7 @@ export default function AlertsPage() {
   const handleGenerarReporte = () => {
     if ((fechaInicio && !fechaFin) || (!fechaInicio && fechaFin)) {
       Swal.fire({
-        title: "Atención",
+        title: "Atencion",
         text: "Por favor selecciona ambas fechas para filtrar por rango",
         icon: "warning",
       });
@@ -565,7 +657,7 @@ export default function AlertsPage() {
       const end = new Date(fechaFin);
       if (start > end) {
         Swal.fire({
-          title: "Atención",
+          title: "Atencion",
           text: "La fecha de inicio no puede ser mayor que la fecha fin",
           icon: "warning",
         });
@@ -618,6 +710,42 @@ export default function AlertsPage() {
           )}
         </div>
       </div>
+
+      {draftSummary.length > 0 && (
+        <div className="rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">
+                Borradores de orden de compra
+              </h2>
+              <p className="text-xs text-emerald-600">
+                {draftSummary.length} proveedor{draftSummary.length === 1 ? "" : "es"} con{" "}
+                {totalDraftUnits} unidad{totalDraftUnits === 1 ? "" : "es"} pendientes de confirmar.
+              </p>
+            </div>
+            <Link
+              href="/admin/inventario/ordenes-compra"
+              className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+            >
+              Ir a ordenes de compra
+            </Link>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {draftSummary.map((draft) => (
+              <div
+                key={draft.proveedorId}
+                className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+              >
+                <div className="font-medium">{draft.proveedorNombre}</div>
+                <div className="text-xs text-emerald-600">
+                  {draft.items} producto{draft.items === 1 ? "" : "s"} - {draft.unidades} unidad
+                  {draft.unidades === 1 ? "" : "es"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-1">
@@ -785,6 +913,7 @@ export default function AlertsPage() {
               <th className="px-4 py-3 text-left">Producto</th>
               <th className="px-4 py-3 text-left">Lote</th>
               <th className="px-4 py-3 text-left">Stock</th>
+              <th className="px-4 py-3 text-left">Proveedor</th>
               <th className="px-4 py-3 text-left">Dias restantes</th>
               <th className="px-4 py-3 text-left">Severidad</th>
               <th className="px-4 py-3 text-left">Estado</th>
@@ -794,7 +923,7 @@ export default function AlertsPage() {
           <tbody className="divide-y divide-zinc-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-zinc-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-zinc-500">
                   Cargando alertas...
                 </td>
               </tr>
@@ -808,7 +937,7 @@ export default function AlertsPage() {
                     <td className="px-4 py-3">
                       <div className="font-medium text-zinc-900">{alert.producto.nombre}</div>
                       <div className="text-xs text-zinc-500">
-                        {alert.type === "STOCK_BAJO" ? "Stock" : "Vencimiento"} ·{" "}
+                        {alert.type === "STOCK_BAJO" ? "Stock" : "Vencimiento"} -{" "}
                         {createdAt.toLocaleDateString()}
                       </div>
                     </td>
@@ -835,6 +964,39 @@ export default function AlertsPage() {
                       <div className="text-xs text-zinc-500">
                         Minimo: {alert.stockMinimo ?? alert.producto.stockMinimo ?? 0}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {alert.producto.proveedor ? (
+                        <div className="space-y-1">
+                          <div className="text-sm text-zinc-800">
+                            {alert.producto.proveedor.nombre}
+                          </div>
+                          {alert.producto.proveedor.contacto && (
+                            <div className="text-xs text-zinc-500">
+                              {alert.producto.proveedor.contacto}
+                            </div>
+                          )}
+                          {(() => {
+                            const key = `${alert.producto.proveedor?.id ?? 0}:${alert.producto.id}`;
+                            const disabled = draftedItems.has(key);
+                            return (
+                              <button
+                                onClick={() => void handleAddToPurchase(alert)}
+                                disabled={disabled}
+                                className={`rounded-md border px-2 py-1 text-xs font-medium transition ${
+                                  disabled
+                                    ? "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                                    : "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                }`}
+                              >
+                                {disabled ? "Ya en orden" : "Agregar a orden"}
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-400">Sin proveedor asignado</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {dias !== null ? (
@@ -891,7 +1053,7 @@ export default function AlertsPage() {
         </div>
         <div className="flex items-center gap-3">
           <label className="text-xs text-zinc-600">
-            Tamaño
+            Tamano
             <select
               value={pageSize}
               onChange={(e) => {
