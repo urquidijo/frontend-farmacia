@@ -72,19 +72,12 @@ export default function RolesPage() {
   const [savingPerms, setSavingPerms] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
 
-  // ------------------------ Select Role ------------------------
-  useEffect(() => {
-    rolesRef.current = roles;
-  }, [roles]);
+  // ------------------------ Select Role (estable) ------------------------
+  const selectRole = useCallback((role: Role) => {
+    setSelectedId(role.id);
+    setEditingRole({ name: role.name, description: role.description ?? '' });
 
-  const selectRole = useCallback((id: number, roleObj?: Role) => {
-    setSelectedId(id);
-    const found = roleObj ?? rolesRef.current.find(r => r.id === id);
-    if (!found) return;
-
-    setEditingRole({ name: found.name, description: found.description ?? '' });
-
-    const currentChecked = new Set<number>((found.permissions ?? []).map(p => p.permission.id));
+    const currentChecked = new Set<number>((role.permissions ?? []).map(p => p.permission.id));
     setChecked(currentChecked);
     setBaseline(new Set(currentChecked));
 
@@ -103,14 +96,13 @@ export default function RolesPage() {
       if (!rRoles.ok) throw new Error(await rRoles.text());
       if (!rPerms.ok) throw new Error(await rPerms.text());
 
-      const rolesJson = (await rRoles.json()) as Role[];
-      const permsJson = (await rPerms.json()) as Permission[];
+      const rolesJson: Role[] = await rRoles.json();
+      const permsJson: Permission[] = await rPerms.json();
       setRoles(rolesJson);
       setAllPerms(permsJson);
 
-      if (rolesJson?.length) {
-        const firstId = rolesJson[0].id;
-        selectRole(firstId, rolesJson[0]);
+      if (rolesJson.length) {
+        selectRole(rolesJson[0]);
       }
     } catch (e) {
       console.error(e);
@@ -215,7 +207,7 @@ export default function RolesPage() {
       setRoles(newRoles);
       const updated = newRoles.find(x => x.id === selectedId);
       if (updated) {
-        selectRole(selectedId, updated);
+        selectRole(updated);
         setBaseline(new Set(Array.from(checked))); // baseline = lo guardado
       }
 
@@ -244,7 +236,7 @@ export default function RolesPage() {
       const newRoles = (await r2.json()) as Role[];
       setRoles(newRoles);
       const updated = newRoles.find(x => x.id === selectedId);
-      if (updated) selectRole(selectedId, updated);
+      if (updated) selectRole(updated);
 
       Swal.fire('Exito', 'Rol actualizado', 'success');
     } catch (e) {
@@ -287,8 +279,8 @@ export default function RolesPage() {
       const r2 = await fetch('/api/roles?withPerms=true', { cache: 'no-store' });
       const list = (await r2.json()) as Role[];
       setRoles(list);
-      selectRole(newRole.id, newRole);
-      Swal.fire('Exito', 'Rol creado', 'success');
+      selectRole(newRole);
+      Swal.fire('Éxito', 'Rol creado', 'success');
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo crear el rol', 'error');
@@ -315,7 +307,7 @@ export default function RolesPage() {
       const list = (await r2.json()) as Role[];
       setRoles(list);
 
-      if (list.length) selectRole(list[0].id, list[0]);
+      if (list.length) selectRole(list[0]);
       else {
         setSelectedId(null);
         setEditingRole(null);
@@ -396,7 +388,7 @@ export default function RolesPage() {
                 return (
                   <li key={r.id} className={`flex items-center justify-between px-3 py-2 ${active ? 'bg-emerald-50/60' : ''}`}>
                     <button
-                      onClick={() => selectRole(r.id, r)}
+                      onClick={() => selectRole(r)}
                       className="flex-1 text-left"
                     >
                       <div className="flex items-center gap-2">
