@@ -174,7 +174,6 @@ export default function SuscripcionesPage() {
       if (!res.ok) throw new Error('Error al cargar productos')
 
       const data = await res.json()
-      console.log('Datos recibidos de productos:', data)
 
       // Manejar diferentes estructuras de respuesta
       let productos: Producto[] = []
