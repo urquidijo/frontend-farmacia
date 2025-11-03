@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import AdminSidebar from "@/components/AdminSidebar";
+import AdminVoiceAssistant from "@/components/AdminVoiceAssistant";
 
 type Me = {
   id: number;
@@ -327,6 +328,9 @@ export default function AdminLayout({
           <AdminSidebar onNavigate={() => setOpenMobile(false)} />
         </div>
       </div>
+
+      {/* Voice Assistant */}
+      <AdminVoiceAssistant />
     </div>
   );
 }
